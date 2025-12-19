@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcomer Bot Dashboard</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .controls {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .preview {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            overflow: auto;
+        }
+
+        canvas {
+            border: 1px solid #000;
+        }
+
+        .field-group {
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            margin-bottom: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 10px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="controls">
+        <h2>Settings</h2>
+
+        <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px;">
+            <button onclick="switchMode('welcome')" id="btnWelcome" style="flex: 1; min-width: 100px; padding: 10px;">Welcome</button>
+            <button onclick="switchMode('kartuPelajar')" id="btnKartuPelajar"
+                style="flex: 1; min-width: 100px; padding: 10px; background-color: #6c757d;">KP (Cowok)</button>
+            <button onclick="switchMode('kartuPelajarFemale')" id="btnKartuPelajarFemale"
+                style="flex: 1; min-width: 100px; padding: 10px; background-color: #6c757d;">KP (Cewek)</button>
+            <button onclick="switchMode('goodbye')" id="btnGoodbye"
+                style="flex: 1; min-width: 100px; padding: 10px; background-color: #6c757d;">Goodbye</button>
+            <button onclick="switchMode('voiceStreak')" id="btnVoiceStreak"
+                style="flex: 1; min-width: 100px; padding: 10px; background-color: #6c757d; display: block !important; visibility: visible !important;">Voice Streak</button>
+        </div>
+
+        <div class="field-group" id="bgSettings">
+            <label>Background Image</label>
+            <input type="file" id="bgUpload" accept="image/*">
+            <button onclick="uploadBackground()">Upload</button>
+        </div>
+
+        <div class="field-group" id="avatarSettings">
+            <label>Avatar Settings</label>
+            <label><input type="checkbox" id="avatarEnabled" onchange="updateAvatar('enabled', this.checked)">
+                Enabled</label>
+            X: <input type="number" id="avatarX" onchange="updateAvatar('x', this.value)">
+            Y: <input type="number" id="avatarY" onchange="updateAvatar('y', this.value)">
+            Size: <input type="number" id="avatarSize" onchange="updateAvatar('size', this.value)">
+        </div>
+
+        <div class="field-group" id="stampSettings">
+            <label>Stamp Settings</label>
+            <label><input type="checkbox" id="stampEnabled" onchange="updateStamp('enabled', this.checked)">
+                Enabled</label>
+            X: <input type="number" id="stampX" onchange="updateStamp('x', this.value)">
+            Y: <input type="number" id="stampY" onchange="updateStamp('y', this.value)">
+            Size: <input type="number" id="stampSize" onchange="updateStamp('size', this.value)">
+            Rotation: <input type="number" id="stampRotation" onchange="updateStamp('rotation', this.value)">
+        </div>
+
+        <div class="field-group" id="voiceStreakSettings" style="display:none;">
+            <label>Voice Streak Card (Layout)</label>
+            <small>Ubah angka → preview update. Klik Save untuk simpan ke config.json.</small>
+            <hr>
+            Avatar Size: <input type="number" id="vscAvatarSize" min="60" max="180"
+                onchange="updateVoiceStreakCard('avatarSize', this.value)">
+            Avatar Y: <input type="number" id="vscAvatarY" min="0" max="400"
+                onchange="updateVoiceStreakCard('avatarY', this.value)">
+            Left Avatar X: <input type="number" id="vscLeftAvatarX" min="0" max="900"
+                onchange="updateVoiceStreakCard('leftAvatarX', this.value)">
+            Right Avatar X: <input type="number" id="vscRightAvatarX" min="0" max="900"
+                onchange="updateVoiceStreakCard('rightAvatarX', this.value)">
+            Name Pill Y: <input type="number" id="vscNamePillY" min="0" max="500"
+                onchange="updateVoiceStreakCard('namePillY', this.value)">
+            Flame Size: <input type="number" id="vscFlameSize" min="40" max="140"
+                onchange="updateVoiceStreakCard('flameSize', this.value)">
+            Flame Y: <input type="number" id="vscFlameY" min="0" max="400"
+                onchange="updateVoiceStreakCard('flameY', this.value)">
+            Number Font Size: <input type="number" id="vscNumberFontSize" min="40" max="120"
+                onchange="updateVoiceStreakCard('numberFontSize', this.value)">
+            Number Y: <input type="number" id="vscNumberY" min="0" max="500"
+                onchange="updateVoiceStreakCard('numberY', this.value)">
+            Label Font Size: <input type="number" id="vscLabelFontSize" min="12" max="40"
+                onchange="updateVoiceStreakCard('labelFontSize', this.value)">
+            Label Y: <input type="number" id="vscLabelY" min="0" max="520"
+                onchange="updateVoiceStreakCard('labelY', this.value)">
+        </div>
+
+        <div class="field-group" id="classSettings" style="display: none;">
+            <label>Kartu Pelajar Settings</label>
+
+            <div id="maleSettings">
+                <div style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                    <label>Background Image (Cowok)</label>
+                    <input type="file" id="kpBgUpload" accept="image/*">
+                    <button onclick="uploadKartuPelajarBackground()">Upload Background</button>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>Student Role ID (Cowok)</label>
+                    <input type="text" id="studentRoleId" placeholder="Enter Role ID"
+                        onchange="updateClass('studentRoleId', this.value)">
+                </div>
+            </div>
+
+            <div id="femaleSettings" style="display: none;">
+                <div style="margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                    <label>Background Image (Cewek)</label>
+                    <input type="file" id="kartuPelajarFemaleUpload" accept="image/*">
+                    <button onclick="uploadKartuPelajarFemale()">Upload Background</button>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label>Student Role ID (Cewek)</label>
+                    <input type="text" id="studentFemaleRoleId" placeholder="Enter Role ID"
+                        onchange="updateClass('studentFemaleRoleId', this.value)">
+                </div>
+            </div>
+
+            <label><input type="checkbox" id="classEnabled" onchange="updateClass('enabled', this.checked)">
+                Enable Class Checkmarks</label>
+            <div style="margin-top: 10px; margin-bottom: 10px;">
+                <label>Checklist Settings</label>
+                Image: <input type="text" id="checklistImage" onchange="updateClass('checklistImage', this.value)"
+                    placeholder="checklist.png">
+                Width: <input type="number" id="checklistWidth" onchange="updateClass('checklistWidth', this.value)">
+                Height: <input type="number" id="checklistHeight" onchange="updateClass('checklistHeight', this.value)">
+            </div>
+
+            <div style="margin-top: 10px; border-top: 1px solid #ccc; padding-top: 5px;">
+                <label>Jurusan Text Settings</label>
+                X: <input type="number" id="jurusanX" onchange="updateJurusan('x', this.value)">
+                Y: <input type="number" id="jurusanY" onchange="updateJurusan('y', this.value)">
+                Size: <input type="number" id="jurusanSize" onchange="updateJurusan('fontSize', this.value)">
+                Color: <input type="color" id="jurusanColor" onchange="updateJurusan('color', this.value)">
+            </div>
+
+            Symbol: <input type="text" id="classSymbol" onchange="updateClass('symbol', this.value)">
+            Size: <input type="number" id="classSize" onchange="updateClass('fontSize', this.value)">
+            Color: <input type="color" id="classColor" onchange="updateClass('color', this.value)">
+
+            <div style="margin-top: 10px; border-top: 1px solid #ccc; padding-top: 5px;">
+                <label>Positions</label>
+                <strong>X:</strong> X <input type="number" id="classX_x" onchange="updateClass('x', this.value, 'X')"
+                    style="width: 60px;"> Y <input type="number" id="classX_y"
+                    onchange="updateClass('y', this.value, 'X')" style="width: 60px;"><br>
+                <strong>XI:</strong> X <input type="number" id="classXI_x" onchange="updateClass('x', this.value, 'XI')"
+                    style="width: 60px;"> Y <input type="number" id="classXI_y"
+                    onchange="updateClass('y', this.value, 'XI')" style="width: 60px;"><br>
+                <strong>XII:</strong> X <input type="number" id="classXII_x"
+                    onchange="updateClass('x', this.value, 'XII')" style="width: 60px;"> Y <input type="number"
+                    id="classXII_y" onchange="updateClass('y', this.value, 'XII')" style="width: 60px;">
+                <br>
+                <div style="margin-top: 10px;">
+                    <label>Class Role IDs</label>
+                    X: <input type="text" id="classX_roleId" onchange="updateClass('roleId', this.value, 'X')"
+                        placeholder="Role ID Class X"><br>
+                    XI: <input type="text" id="classXI_roleId" onchange="updateClass('roleId', this.value, 'XI')"
+                        placeholder="Role ID Class XI"><br>
+                    XII: <input type="text" id="classXII_roleId" onchange="updateClass('roleId', this.value, 'XII')"
+                        placeholder="Role ID Class XII">
+                </div>
+            </div>
+        </div>
+
+        <div id="textFields">
+            <!-- Text fields will be generated here -->
+        </div>
+
+        <button onclick="saveConfig()">Save Configuration</button>
+    </div>
+
+    <div class="preview">
+        <h2>Preview</h2>
+        <canvas id="previewCanvas"></canvas>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

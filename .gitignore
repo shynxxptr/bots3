@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Data files (user data, sensitive)
+data/*.json
+!data/.gitkeep
+
+# Backups
+backups/
+*.zip
+*.backup
+
+# Preview/test images
+preview_*.png
+*.png
+*.jpg
+*.jpeg
+*.gif
+!assets/*.png
+!assets/*.jpg
+!assets/*.jpeg
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+setup_output*.txt
+guilds.txt
+
+# PM2
+.pm2/
+

@@ -1,0 +1,305 @@
+{
+    "backgroundImage": "template.png",
+    "levelUpChannelId": "1444692056713986276",
+    "avatar": {
+        "x": 794,
+        "y": 314,
+        "width": 183,
+        "height": 183,
+        "enabled": true
+    },
+    "stamp": {
+        "x": 844,
+        "y": 408,
+        "width": 132,
+        "height": 132,
+        "rotation": -15,
+        "enabled": true
+    },
+    "class": {
+        "enabled": true,
+        "backgroundImage": "kartu_pelajar_template.png",
+        "studentRoleId": "1444942057134231604",
+        "studentFemaleRoleId": "1444942093637128202",
+        "femaleBackgroundImage": "kartu_pelajar_cewe.png",
+        "symbol": "X",
+        "avatar": {
+            "x": 755,
+            "y": 185,
+            "width": 183,
+            "height": 183,
+            "enabled": true
+        },
+        "femaleAvatar": {
+            "x": 755,
+            "y": 185,
+            "width": 183,
+            "height": 183,
+            "enabled": true
+        },
+        "checklistImage": "checklist.png",
+        "checklistWidth": 50,
+        "checklistHeight": 50,
+        "fontSize": 40,
+        "color": "#000000",
+        "studentFields": [
+            {
+                "id": "namaSiswa",
+                "label": "Nama Siswa",
+                "x": 233,
+                "y": 308,
+                "fontSize": 25,
+                "color": "#000000",
+                "fontFamily": "sans-serif"
+            },
+            {
+                "id": "nisn",
+                "label": "Nomor Induk",
+                "x": 233,
+                "y": 377,
+                "fontSize": 25,
+                "color": "#000000",
+                "fontFamily": "sans-serif"
+            },
+            {
+                "id": "jurusan",
+                "label": "Jurusan",
+                "x": 224,
+                "y": 443,
+                "fontSize": 22,
+                "color": "#000000",
+                "fontFamily": "sans-serif"
+            }
+        ],
+        "femaleStudentFields": [
+            {
+                "id": "namaSiswa",
+                "label": "Nama Siswa",
+                "x": 233,
+                "y": 308,
+                "fontSize": 25,
+                "color": "#fafad8",
+                "fontFamily": "sans-serif"
+            },
+            {
+                "id": "nisn",
+                "label": "Nomor Induk",
+                "x": 233,
+                "y": 377,
+                "fontSize": 25,
+                "color": "#fafad8",
+                "fontFamily": "sans-serif"
+            },
+            {
+                "id": "jurusan",
+                "label": "Jurusan",
+                "x": 224,
+                "y": 443,
+                "fontSize": 22,
+                "color": "#fafad8",
+                "fontFamily": "sans-serif"
+            }
+        ],
+        "options": {
+            "X": {
+                "x": 740,
+                "y": 462,
+                "roleId": "1445344336597352501"
+            },
+            "XI": {
+                "x": 850,
+                "y": 462,
+                "roleId": "1445344371988893856"
+            },
+            "XII": {
+                "x": 952,
+                "y": 462,
+                "roleId": "1445344412853993616"
+            }
+        }
+    },
+    "textFields": [
+        {
+            "id": "username",
+            "label": "Nama Siswa",
+            "x": 315,
+            "y": 338,
+            "fontSize": 36,
+            "color": "#000000",
+            "fontFamily": "sans-serif"
+        },
+        {
+            "id": "userId",
+            "label": "Nomor Induk",
+            "x": 315,
+            "y": 395,
+            "fontSize": 36,
+            "color": "#000000",
+            "fontFamily": "sans-serif"
+        },
+        {
+            "id": "joinDate",
+            "label": "Tanggal Masuk",
+            "x": 315,
+            "y": 450,
+            "fontSize": 36,
+            "color": "#000000",
+            "fontFamily": "sans-serif"
+        },
+        {
+            "id": "memberCount",
+            "label": "Antrian Ke",
+            "x": 315,
+            "y": 507,
+            "fontSize": 36,
+            "color": "#000000",
+            "fontFamily": "sans-serif"
+        }
+    ],
+    "embedColor": "#00008B",
+    "welcomeMessage": "🎒 Tok! Formulir diterima. <@{{userId}}> resmi menjadi siswa baru di S3 [ Sekolah Suka Suka ].\n\nSelamat datang di sekolah dengan kurikulum \"Terserah Member\"! Sebelum mulai bolos atau mabar, selesaikan administrasi ini dulu:\n\n📜 Baca UUD (Ujung-Ujungnya Diban) di <#1444681657226625054>\n\n🎭 Pilih Jurusan & Atributmu di <#1444683281311334623>\n\n🗺️ Cek Denah Sekolah biar gak nyasar di <#1444681778915840010>\n\n💬 Langsung kenalan sama murid lain di <#1444684280436359380>\n\nSemoga betah dan jangan cepet lulus ya! S3 — Guru Rapat, Siswa Merapat. 💫",
+    "inviteMessage": "Waduh, ada yang masuk lewat pintu belakang nih!\n\n👤 Tersangka: <@{{userId}}> 🤝 Bekingan/Orang Dalam: {{inviter}}\n\nSelamat! Karena lu punya koneksi orang dalem, lu gak perlu antri (tapi tetep harus baca rules).\n\nTotal masa yang dibawa {{inviter}}: {{inviterCount}} orang. \"Jaga nama baik yang bawa lu, jangan bikin malu!\"",
+    "generalChannelId": "1444684280436359380",
+    "randomWelcomeMessages": [
+        "Wih, ada murid baru! <@{{userId}}> jangan lupa salim sama kakak kelas ya. 🙏",
+        "Selamat datang <@{{userId}}>! Awas, jangan duduk di bangku belakang, itu tempat keramat. 👻",
+        "Halo <@{{userId}}>! Kantin ada di sebelah kiri, WC di sebelah kanan, ruang BK... jangan sampe kesana ya. 🚫",
+        "Eh ada <@{{userId}}>! Semoga betah di S3, sekolah paling santuy se-alam semesta. 🌍",
+        "Welcome <@{{userId}}>! Disini bebas mau ngapain aja, asal jangan baper. 😜",
+        "Cieee murid baru... <@{{userId}}> kenalan dulu dong, jangan sombong. 😏",
+        "Tok tok tok! <@{{userId}}> masuk kelas! Jangan telat, nanti disuruh berdiri di depan. ⏰",
+        "Hai <@{{userId}}>! Siapkan mental, karena disini isinya orang-orang 'unik' semua. 🤪",
+        "Selamat bergabung <@{{userId}}>! Jangan lupa bayar uang kas... bercanda deng. 💸",
+        "Ayo sambut <@{{userId}}>! Semoga bisa jadi murid teladan (atau setidaknya gak bikin onar). 😇"
+    ],
+    "serverStats": {
+        "totalMembersChannelId": "1445031094763126847",
+        "onlineMembersChannelId": "1445031097929957559",
+        "totalMembersFormat": "Total Siswa: {count}",
+        "onlineMembersFormat": "Siswa Aktif: {count}"
+    },
+    "goodbye": {
+        "backgroundImage": "goodbye_template.png",
+        "avatar": {
+            "x": 452,
+            "y": 400,
+            "width": 115,
+            "height": 115,
+            "enabled": true
+        },
+        "stamp": {
+            "x": 474,
+            "y": 436,
+            "width": 108,
+            "height": 108,
+            "rotation": -15,
+            "enabled": true
+        },
+        "textFields": [
+            {
+                "id": "username",
+                "label": "Nama Siswa",
+                "x": 404,
+                "y": 540,
+                "fontSize": 24,
+                "color": "#000000",
+                "fontFamily": "sans-serif"
+            },
+            {
+                "id": "userId",
+                "label": "Nomor Induk",
+                "x": 405,
+                "y": 560,
+                "fontSize": 20,
+                "color": "#000000",
+                "fontFamily": "sans-serif"
+            }
+        ],
+        "goodbyeMessage": "📜 SURAT KELUAR DITERBITKAN\n\nYah... satu bangku kosong lagi. <@{{userId}}> memutuskan untuk cabut dari S3.\n\nEntah karena gak kuat mental, atau mau fokus ngejar cita-cita (katanya).\n\nYa udah, hati-hati di jalan. Pintu gerbang selalu terbuka kalau mau balik (tapi daftar ulang lagi dari nol). 🚪"
+    },
+    "selfRoles": [
+        {
+            "label": "TGM (Teknik Gaming & Mekanik)",
+            "description": "Khusus yang login buat tryhard, push rank, dan adu mekanik. No noob allowed.",
+            "value": "1444896098236760248",
+            "emoji": "<:tgm:1444962327643553895>"
+        },
+        {
+            "label": "TKJ (Tim Kejar Jodoh)",
+            "description": "Sekolah bukan cari ilmu, tapi cari ayang. Tempatnya bucin dan fakboy/fakgirl.",
+            "value": "1444913093149986943",
+            "emoji": "<:tkj:1444962298685947995>"
+        },
+        {
+            "label": "MM (Manusia Meme)",
+            "description": "Jurusan badut kelas. Stok stiker aib full storage. Hidup segan ngelawak tak mau.",
+            "value": "1444913539679780864",
+            "emoji": "<:mm:1444962266955911319>"
+        },
+        {
+            "label": "Yapping Dept. (Jurusan Banyak Omong)",
+            "description": "Radio berjalan. Ngomong dulu mikir belakangan. Asbun nomor satu.",
+            "value": "1444913427108597760",
+            "emoji": "<:yappingdept:1444962235368865823>"
+        },
+        {
+            "label": "OTKP (Orang Tenang Kebanyakan Pikiran)",
+            "description": "Kaum introvert, silent reader, deep talker, dan overthinker.",
+            "value": "1444913978819088485",
+            "emoji": "<:otkp:1444962200895885373>"
+        }
+    ],
+    "gameRoles": [
+        {
+            "label": "Mobile Legends",
+            "description": "Role untuk pemain Mobile Legends",
+            "value": "1444968087165210655",
+            "emoji": "<:mlbb:1444969492756299868>"
+        },
+        {
+            "label": "PUBG",
+            "description": "Role untuk pemain PUBG",
+            "value": "1444968277305724928",
+            "emoji": "<:pubg:1444969543977009192>"
+        },
+        {
+            "label": "Genshin Impact",
+            "description": "Role untuk pemain Genshin Impact",
+            "value": "1444968194866679869",
+            "emoji": "<:genshin:1444969647840559226>"
+        },
+        {
+            "label": "Roblox",
+            "description": "Role untuk pemain Roblox",
+            "value": "1444968165980372992",
+            "emoji": "<:roblox:1444969594971226212>"
+        }
+    ],
+    "counting": {
+        "channelId": "1444692489175826544"
+    },
+    "menfessChannelId": "1444689944676143186",
+    "menfessLogChannelId": "1444983597802061884",
+    "replyLogChannelId": "1444983599643230331",
+    "modLogChannelId": "1444983601279013009",
+    "modRoleIds": [
+        "1439869768520695939"
+    ],
+    "paths": {
+        "counter": "./data/counter.json",
+        "timeout": "./data/timeout.json",
+        "menfessDB": "./data/menfess_db.json"
+    },
+    "voicePairStreakCard": {
+        "avatarY": 144,
+        "leftAvatarX": 147,
+        "rightAvatarX": 731,
+        "avatarSize": 104,
+        "flameY": 121,
+        "numberFontSize": 55,
+        "numberY": 215,
+        "labelFontSize": 17,
+        "labelY": 247,
+        "namePillY": 217
+    }
+}
