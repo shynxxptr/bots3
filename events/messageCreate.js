@@ -320,8 +320,9 @@ module.exports = {
                     
                     // Progress bar (10 blocks)
                     const progressBlocks = 10;
-                    const filledBlocks = requiredSeconds > 0 ? Math.floor((todaySeconds / requiredSeconds) * progressBlocks) : 0;
-                    const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(progressBlocks - filledBlocks);
+                    const filledBlocks = requiredSeconds > 0 ? Math.min(Math.floor((todaySeconds / requiredSeconds) * progressBlocks), progressBlocks) : 0;
+                    const emptyBlocks = Math.max(progressBlocks - filledBlocks, 0);
+                    const progressBar = '█'.repeat(Math.max(filledBlocks, 0)) + '░'.repeat(emptyBlocks);
 
                     const embed = new EmbedBuilder()
                         .setColor('#ff6a00')
