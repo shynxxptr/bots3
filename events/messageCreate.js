@@ -275,61 +275,70 @@ module.exports = {
 
             const target = message.mentions.users.first();
             if (target) {
-                const p = getPairStreak(message.guild.id, message.author.id, target.id);
-                if (!p) {
-                    const reply = await message.reply(
-                        `🔥 Voice streak kamu dengan **${target.username}**: **0**\n` +
-                        `Belum memenuhi syarat (harus bareng **${Math.round(settings.requiredSeconds / 60)} menit** per hari, **3 hari berturut-turut**).`
-                    );
-                    setTimeout(() => reply.delete().catch(() => { }), 15000);
+                // Prevent checking streak with self
+                if (target.id === message.author.id) {
+                    const reply = await message.reply('❌ Kamu tidak bisa cek streak dengan dirimu sendiri!');
+                    setTimeout(() => reply.delete().catch(() => { }), 10000);
                     return;
                 }
+                
+                try {
+                    const p = getPairStreak(message.guild.id, message.author.id, target.id);
+                    
+                    // Format time helper
+                    const formatTime = (seconds) => {
+                        const hours = Math.floor(seconds / 3600);
+                        const minutes = Math.floor((seconds % 3600) / 60);
+                        const secs = seconds % 60;
+                        if (hours > 0) {
+                            return `${hours}j ${minutes}m`;
+                        } else if (minutes > 0) {
+                            return `${minutes}m ${secs}d`;
+                        } else {
+                            return `${secs}d`;
+                        }
+                    };
 
-                const other = p.a === message.author.id ? p.b : p.a;
-                
-                // Calculate progress for today
-                const todaySeconds = p.todaySeconds || 0;
-                const requiredSeconds = settings.requiredSeconds;
-                const progressPercent = requiredSeconds > 0 ? Math.min((todaySeconds / requiredSeconds) * 100, 100) : 0;
-                const remainingSeconds = Math.max(requiredSeconds - todaySeconds, 0);
-                
-                // Format time
-                const formatTime = (seconds) => {
-                    const hours = Math.floor(seconds / 3600);
-                    const minutes = Math.floor((seconds % 3600) / 60);
-                    const secs = seconds % 60;
-                    if (hours > 0) {
-                        return `${hours}j ${minutes}m ${secs}d`;
-                    } else if (minutes > 0) {
-                        return `${minutes}m ${secs}d`;
-                    } else {
-                        return `${secs}d`;
+                    const requiredMinutes = Math.floor(settings.requiredSeconds / 60);
+                    const requiredSeconds = settings.requiredSeconds;
+
+                    if (!p) {
+                        const reply = await message.reply(
+                            `🔥 Voice streak kamu dengan **${target.username}**: **0**\n` +
+                            `Belum memenuhi syarat (harus bareng **${requiredMinutes} menit** per hari, **3 hari berturut-turut**).`
+                        );
+                        setTimeout(() => reply.delete().catch(() => { }), 15000);
+                        return;
                     }
-                };
 
-                const requiredMinutes = Math.floor(requiredSeconds / 60);
-                
-                // Progress bar (10 blocks)
-                const progressBlocks = 10;
-                const filledBlocks = requiredSeconds > 0 ? Math.floor((todaySeconds / requiredSeconds) * progressBlocks) : 0;
-                const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(progressBlocks - filledBlocks);
+                    const other = p.a === message.author.id ? p.b : p.a;
+                    
+                    // Calculate progress for today
+                    const todaySeconds = p.todaySeconds || 0;
+                    const progressPercent = requiredSeconds > 0 ? Math.min((todaySeconds / requiredSeconds) * 100, 100) : 0;
+                    const remainingSeconds = Math.max(requiredSeconds - todaySeconds, 0);
+                    
+                    // Progress bar (10 blocks)
+                    const progressBlocks = 10;
+                    const filledBlocks = requiredSeconds > 0 ? Math.floor((todaySeconds / requiredSeconds) * progressBlocks) : 0;
+                    const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(progressBlocks - filledBlocks);
 
-                const embed = new EmbedBuilder()
-                    .setColor('#ff6a00')
-                    .setTitle('🔥 Voice Pair Streak')
-                    .setDescription(`Streak kamu dengan <@${other}>: **${p.streak} hari**`)
-                    .addFields(
-                        { name: 'Terakhir valid', value: p.lastValidDate ? `\`${p.lastValidDate}\`` : '`-`', inline: true },
-                        { name: 'Status', value: p.status === 'active' ? '✅ Active' : '⏳ Candidate', inline: true },
-                        { name: 'Rule', value: `≥${requiredMinutes} menit/hari (WIB)`, inline: true },
-                    );
+                    const embed = new EmbedBuilder()
+                        .setColor('#ff6a00')
+                        .setTitle('🔥 Voice Pair Streak')
+                        .setDescription(`Streak kamu dengan <@${other}>: **${p.streak || 0} hari**`)
+                        .addFields(
+                            { name: 'Terakhir valid', value: p.lastValidDate ? `\`${p.lastValidDate}\`` : '`-`', inline: true },
+                            { name: 'Status', value: p.status === 'active' ? '✅ Active' : '⏳ Candidate', inline: true },
+                            { name: 'Rule', value: `≥${requiredMinutes} menit/hari (WIB)`, inline: true },
+                        );
 
-                // Add progress field if pair exists (even if not active)
-                if (p.todayKey) {
+                    // Add progress field
                     const { getDateKey } = require('../utils/voicePairStreak');
                     const todayKey = getDateKey();
                     
                     if (p.todayKey === todayKey) {
+                        // Same day - show progress
                         const isCompleted = p.todayValid || todaySeconds >= requiredSeconds;
                         embed.addFields({
                             name: isCompleted ? '✅ Progress Hari Ini (Selesai)' : '⏳ Progress Hari Ini',
@@ -339,17 +348,29 @@ module.exports = {
                                 (remainingSeconds > 0 ? `⏰ Tersisa: **${formatTime(remainingSeconds)}**` : '✅ **Sudah selesai hari ini!**'),
                             inline: false
                         });
+                    } else if (p.todayKey) {
+                        // Different day - no activity today
+                        embed.addFields({
+                            name: '📅 Progress Hari Ini',
+                            value: 'Belum ada aktivitas hari ini',
+                            inline: false
+                        });
                     } else {
+                        // No todayKey - never tracked today
                         embed.addFields({
                             name: '📅 Progress Hari Ini',
                             value: 'Belum ada aktivitas hari ini',
                             inline: false
                         });
                     }
-                }
 
-                const reply = await message.reply({ embeds: [embed] });
-                setTimeout(() => reply.delete().catch(() => { }), 30000);
+                    const reply = await message.reply({ embeds: [embed] });
+                    setTimeout(() => reply.delete().catch(() => { }), 30000);
+                } catch (error) {
+                    console.error('Error in !vstreak command:', error);
+                    const reply = await message.reply('❌ Terjadi error saat mengecek streak. Coba lagi nanti.');
+                    setTimeout(() => reply.delete().catch(() => { }), 10000);
+                }
                 return;
             }
 
