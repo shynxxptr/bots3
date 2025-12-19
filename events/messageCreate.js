@@ -276,7 +276,7 @@ module.exports = {
             const target = message.mentions.users.first();
             if (target) {
                 const p = getPairStreak(message.guild.id, message.author.id, target.id);
-                if (!p || p.status !== 'active') {
+                if (!p) {
                     const reply = await message.reply(
                         `🔥 Voice streak kamu dengan **${target.username}**: **0**\n` +
                         `Belum memenuhi syarat (harus bareng **${Math.round(settings.requiredSeconds / 60)} menit** per hari, **3 hari berturut-turut**).`
@@ -286,17 +286,70 @@ module.exports = {
                 }
 
                 const other = p.a === message.author.id ? p.b : p.a;
+                
+                // Calculate progress for today
+                const todaySeconds = p.todaySeconds || 0;
+                const requiredSeconds = settings.requiredSeconds;
+                const progressPercent = requiredSeconds > 0 ? Math.min((todaySeconds / requiredSeconds) * 100, 100) : 0;
+                const remainingSeconds = Math.max(requiredSeconds - todaySeconds, 0);
+                
+                // Format time
+                const formatTime = (seconds) => {
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const secs = seconds % 60;
+                    if (hours > 0) {
+                        return `${hours}j ${minutes}m ${secs}d`;
+                    } else if (minutes > 0) {
+                        return `${minutes}m ${secs}d`;
+                    } else {
+                        return `${secs}d`;
+                    }
+                };
+
+                const requiredMinutes = Math.floor(requiredSeconds / 60);
+                
+                // Progress bar (10 blocks)
+                const progressBlocks = 10;
+                const filledBlocks = requiredSeconds > 0 ? Math.floor((todaySeconds / requiredSeconds) * progressBlocks) : 0;
+                const progressBar = '█'.repeat(filledBlocks) + '░'.repeat(progressBlocks - filledBlocks);
+
                 const embed = new EmbedBuilder()
                     .setColor('#ff6a00')
                     .setTitle('🔥 Voice Pair Streak')
                     .setDescription(`Streak kamu dengan <@${other}>: **${p.streak} hari**`)
                     .addFields(
                         { name: 'Terakhir valid', value: p.lastValidDate ? `\`${p.lastValidDate}\`` : '`-`', inline: true },
-                        { name: 'Rule', value: `≥${Math.round(settings.requiredSeconds / 60)} menit/hari (WIB)`, inline: true },
+                        { name: 'Status', value: p.status === 'active' ? '✅ Active' : '⏳ Candidate', inline: true },
+                        { name: 'Rule', value: `≥${requiredMinutes} menit/hari (WIB)`, inline: true },
                     );
 
+                // Add progress field if pair exists (even if not active)
+                if (p.todayKey) {
+                    const { getDateKey } = require('../utils/voicePairStreak');
+                    const todayKey = getDateKey();
+                    
+                    if (p.todayKey === todayKey) {
+                        const isCompleted = p.todayValid || todaySeconds >= requiredSeconds;
+                        embed.addFields({
+                            name: isCompleted ? '✅ Progress Hari Ini (Selesai)' : '⏳ Progress Hari Ini',
+                            value: 
+                                `\`${progressBar}\` ${progressPercent.toFixed(1)}%\n` +
+                                `⏱️ **${formatTime(todaySeconds)}** / ${formatTime(requiredSeconds)}\n` +
+                                (remainingSeconds > 0 ? `⏰ Tersisa: **${formatTime(remainingSeconds)}**` : '✅ **Sudah selesai hari ini!**'),
+                            inline: false
+                        });
+                    } else {
+                        embed.addFields({
+                            name: '📅 Progress Hari Ini',
+                            value: 'Belum ada aktivitas hari ini',
+                            inline: false
+                        });
+                    }
+                }
+
                 const reply = await message.reply({ embeds: [embed] });
-                setTimeout(() => reply.delete().catch(() => { }), 20000);
+                setTimeout(() => reply.delete().catch(() => { }), 30000);
                 return;
             }
 
@@ -310,10 +363,36 @@ module.exports = {
                 return;
             }
 
+            // Format time helper
+            const formatTime = (seconds) => {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+                if (hours > 0) {
+                    return `${hours}j ${minutes}m`;
+                } else if (minutes > 0) {
+                    return `${minutes}m`;
+                } else {
+                    return `${secs}d`;
+                }
+            };
+
+            const { getDateKey } = require('../utils/voicePairStreak');
+            const todayKey = getDateKey();
+
             const lines = top.map((p, idx) => {
                 const other = p.a === message.author.id ? p.b : p.a;
-                return `**${idx + 1}.** <@${other}> — 🔥 **${p.streak}** hari`;
-            }).join('\n');
+                let line = `**${idx + 1}.** <@${other}> — 🔥 **${p.streak}** hari`;
+                
+                // Add progress if today's data exists
+                if (p.todayKey === todayKey && p.todaySeconds !== undefined) {
+                    const progressPercent = Math.min((p.todaySeconds / settings.requiredSeconds) * 100, 100);
+                    const isCompleted = p.todayValid || p.todaySeconds >= settings.requiredSeconds;
+                    line += `\n   ${isCompleted ? '✅' : '⏳'} ${formatTime(p.todaySeconds)}/${formatTime(settings.requiredSeconds)} (${progressPercent.toFixed(0)}%)`;
+                }
+                
+                return line;
+            }).join('\n\n');
 
             const embed = new EmbedBuilder()
                 .setColor('#ff6a00')
@@ -322,7 +401,7 @@ module.exports = {
                 .setFooter({ text: `Limit: ${settings.limitPerUser} pasangan | Rule: ≥${Math.round(settings.requiredSeconds / 60)} menit/hari (WIB)` });
 
             const reply = await message.reply({ embeds: [embed] });
-            setTimeout(() => reply.delete().catch(() => { }), 25000);
+            setTimeout(() => reply.delete().catch(() => { }), 30000);
             return;
         }
 

@@ -369,6 +369,7 @@ module.exports = {
     getTopPairsForUser,
     getSettings,
     testStreakNotification,
+    getDateKey,
 };
 
 

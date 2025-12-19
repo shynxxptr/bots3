@@ -350,3 +350,4 @@ Jika ingin update panel yang sudah ada:
 - Pastikan bot punya permission "Manage Roles"
 - Pastikan role bot lebih tinggi dari role yang di-assign
 
+
