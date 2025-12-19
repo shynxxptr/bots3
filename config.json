@@ -290,6 +290,9 @@
         "timeout": "./data/timeout.json",
         "menfessDB": "./data/menfess_db.json"
     },
+    "voicePairStreak": {
+        "notifyChannelId": "1451496074643509381"
+    },
     "voicePairStreakCard": {
         "avatarY": 144,
         "leftAvatarX": 147,
