@@ -35,6 +35,9 @@ module.exports = {
                         '`!peringkat` - Lihat peringkat prestasi S3\n' +
                         '`!voicetime [@user]` - Cek total waktu voice\n' +
                         '`!voicelb` - Leaderboard waktu voice\n' +
+                        '`!quote` - Save quote (reply pesan atau manual)\n' +
+                        '`!quote random` - Random quote\n' +
+                        '`!quotelb` - Leaderboard quote\n' +
                         '`!saran <text>` - Buat saran baru\n' +
                         '`s3!help` - Bantuan alternatif',
                     inline: false 

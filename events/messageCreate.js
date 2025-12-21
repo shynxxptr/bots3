@@ -656,6 +656,230 @@ module.exports = {
             return;
         }
 
+        // ===========================
+        // QUOTE SYSTEM
+        // ===========================
+        // !quote [@user] [text] -> save quote (dari reply atau manual)
+        // !quote random [@user] -> random quote
+        // !quote @user -> lihat quotes dari user
+        if (lower === '!quote' || lower.startsWith('!quote ')) {
+            if (!message.guild) return;
+
+            const args = content.split(/\s+/).slice(1);
+            const mentions = message.mentions.users;
+            
+            // !quote random [@user]
+            if (args[0]?.toLowerCase() === 'random') {
+                try {
+                    const { getRandomQuote } = require('../utils/quote');
+                    const targetAuthor = mentions.first();
+                    const quote = getRandomQuote(message.guild.id, targetAuthor?.id);
+                    
+                    if (!quote) {
+                        const reply = await message.reply(
+                            targetAuthor 
+                                ? `📝 Belum ada quote dari **${targetAuthor.username}**.`
+                                : `📝 Belum ada quote di server ini.\n💡 *Gunakan \`!quote\` untuk save quote!*`
+                        );
+                        setTimeout(() => reply.delete().catch(() => { }), 15000);
+                        return;
+                    }
+                    
+                    const author = await message.client.users.fetch(quote.authorId).catch(() => null);
+                    const savedBy = await message.client.users.fetch(quote.savedBy).catch(() => null);
+                    
+                    const embed = new EmbedBuilder()
+                        .setColor('#9B59B6')
+                        .setTitle('💬 Random Quote')
+                        .setDescription(`"${quote.content}"`)
+                        .addFields(
+                            { name: '👤 Author', value: author ? `<@${quote.authorId}>` : 'Unknown', inline: true },
+                            { name: '💾 Saved by', value: savedBy ? `<@${quote.savedBy}>` : 'Unknown', inline: true },
+                        )
+                        .setFooter({ text: `Quote #${quote.id}` })
+                        .setTimestamp(quote.createdAt);
+                    
+                    const reply = await message.reply({ embeds: [embed] });
+                    setTimeout(() => reply.delete().catch(() => { }), 30000);
+                } catch (error) {
+                    console.error('Error in !quote random command:', error);
+                    const reply = await message.reply('❌ Terjadi error saat mengambil random quote. Coba lagi nanti.');
+                    setTimeout(() => reply.delete().catch(() => { }), 10000);
+                }
+                return;
+            }
+            
+            // !quote @user -> lihat quotes dari user
+            if (mentions.size === 1 && args.length === 1) {
+                try {
+                    const target = mentions.first();
+                    const { getQuotesByAuthor } = require('../utils/quote');
+                    const quotes = getQuotesByAuthor(message.guild.id, target.id, 5);
+                    
+                    if (quotes.length === 0) {
+                        const reply = await message.reply(`📝 Belum ada quote dari **${target.username}**.`);
+                        setTimeout(() => reply.delete().catch(() => { }), 15000);
+                        return;
+                    }
+                    
+                    const lines = quotes.map((q, idx) => {
+                        return `**${idx + 1}.** "${q.content.substring(0, 100)}${q.content.length > 100 ? '...' : ''}"`;
+                    }).join('\n\n');
+                    
+                    const embed = new EmbedBuilder()
+                        .setColor('#9B59B6')
+                        .setTitle(`💬 Quotes dari ${target.username}`)
+                        .setDescription(lines)
+                        .setFooter({ text: `Total: ${quotes.length} quote${quotes.length > 1 ? 's' : ''}` });
+                    
+                    const reply = await message.reply({ embeds: [embed] });
+                    setTimeout(() => reply.delete().catch(() => { }), 30000);
+                } catch (error) {
+                    console.error('Error in !quote @user command:', error);
+                    const reply = await message.reply('❌ Terjadi error. Coba lagi nanti.');
+                    setTimeout(() => reply.delete().catch(() => { }), 10000);
+                }
+                return;
+            }
+            
+            // !quote [text] atau reply dengan !quote -> save quote
+            try {
+                const { saveQuote } = require('../utils/quote');
+                let quoteContent = '';
+                let authorId = message.author.id;
+                let messageId = null;
+                let channelId = null;
+                
+                // Check if it's a reply to a message
+                if (message.reference && message.reference.messageId) {
+                    try {
+                        const repliedMessage = await message.channel.messages.fetch(message.reference.messageId);
+                        quoteContent = repliedMessage.content;
+                        authorId = repliedMessage.author.id;
+                        messageId = repliedMessage.id;
+                        channelId = repliedMessage.channel.id;
+                        
+                        if (!quoteContent || quoteContent.trim().length === 0) {
+                            const reply = await message.reply('❌ Pesan yang di-reply tidak memiliki konten!');
+                            setTimeout(() => reply.delete().catch(() => { }), 10000);
+                            return;
+                        }
+                    } catch (err) {
+                        const reply = await message.reply('❌ Tidak bisa mengambil pesan yang di-reply!');
+                        setTimeout(() => reply.delete().catch(() => { }), 10000);
+                        return;
+                    }
+                } else {
+                    // Manual quote with text
+                    const textParts = content.split(/\s+/).slice(1);
+                    if (textParts.length === 0) {
+                        const reply = await message.reply(
+                            '📝 **Cara pakai Quote System:**\n\n' +
+                            '**1. Quote dari pesan:**\n' +
+                            'Reply pesan dengan `!quote`\n\n' +
+                            '**2. Quote manual:**\n' +
+                            '`!quote @user "text quote"`\n' +
+                            'atau\n' +
+                            '`!quote "text quote"` (quote diri sendiri)\n\n' +
+                            '**3. Random quote:**\n' +
+                            '`!quote random` atau `!quote random @user`\n\n' +
+                            '**4. Lihat quotes user:**\n' +
+                            '`!quote @user`'
+                        );
+                        setTimeout(() => reply.delete().catch(() => { }), 25000);
+                        return;
+                    }
+                    
+                    // Check if there's a mention
+                    const mentionedUser = mentions.first();
+                    if (mentionedUser) {
+                        authorId = mentionedUser.id;
+                        // Remove mention from text
+                        textParts.shift();
+                    }
+                    
+                    // Get quote text (handle quoted strings)
+                    const text = textParts.join(' ');
+                    if (text.startsWith('"') && text.endsWith('"')) {
+                        quoteContent = text.slice(1, -1);
+                    } else {
+                        quoteContent = text;
+                    }
+                }
+                
+                const result = saveQuote(
+                    message.guild.id,
+                    authorId,
+                    message.author.id,
+                    quoteContent,
+                    messageId,
+                    channelId
+                );
+                
+                if (!result.success) {
+                    const reply = await message.reply(`❌ ${result.error}`);
+                    setTimeout(() => reply.delete().catch(() => { }), 15000);
+                    return;
+                }
+                
+                const author = await message.client.users.fetch(authorId).catch(() => null);
+                
+                const reply = await message.reply(
+                    `✅ **Quote Disimpan!**\n` +
+                    `"${result.quote.content.substring(0, 200)}${result.quote.content.length > 200 ? '...' : ''}"\n\n` +
+                    `👤 Author: ${author ? `<@${authorId}>` : 'Unknown'}\n` +
+                    `📊 Total quotes dari author: **${result.authorQuoteCount}**\n` +
+                    `💾 Total quotes di server: **${result.totalQuotes}**`
+                );
+                setTimeout(() => reply.delete().catch(() => { }), 20000);
+            } catch (error) {
+                console.error('Error in !quote command:', error);
+                const reply = await message.reply('❌ Terjadi error saat save quote. Coba lagi nanti.');
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+            }
+            return;
+        }
+
+        // !quotelb -> leaderboard quote
+        if (lower === '!quotelb' || lower.startsWith('!quotelb ')) {
+            if (!message.guild) return;
+
+            try {
+                const { getTopQuotedUsers, getTotalQuotes } = require('../utils/quote');
+                const top = getTopQuotedUsers(message.guild.id, 10);
+                const total = getTotalQuotes(message.guild.id);
+
+                if (!top.length) {
+                    const reply = await message.reply(
+                        `📝 **Leaderboard Quote S3**\n` +
+                        `Belum ada quote di server ini.\n` +
+                        `💡 *Gunakan \`!quote\` untuk save quote!*`
+                    );
+                    setTimeout(() => reply.delete().catch(() => { }), 15000);
+                    return;
+                }
+
+                const lines = top.map((author, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '💬';
+                    return `${medal} **${idx + 1}.** <@${author.userId}> — **${author.quoteCount}** quote${author.quoteCount > 1 ? 's' : ''}`;
+                }).join('\n');
+
+                const embed = new EmbedBuilder()
+                    .setColor('#9B59B6')
+                    .setTitle('🏆 Leaderboard Quote S3')
+                    .setDescription(lines)
+                    .setFooter({ text: `Total quotes di server: ${total}` });
+
+                const reply = await message.reply({ embeds: [embed] });
+                setTimeout(() => reply.delete().catch(() => { }), 30000);
+            } catch (error) {
+                console.error('Error in !quotelb command:', error);
+                const reply = await message.reply('❌ Terjadi error saat menampilkan leaderboard. Coba lagi nanti.');
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+            }
+            return;
+        }
+
         const isStaff = () => {
             if (!message.guild || !message.member) return false;
             if (message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return true;
