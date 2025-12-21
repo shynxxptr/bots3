@@ -30,6 +30,9 @@ module.exports = {
                         '`!hadir` - Absen harian (alternatif)\n' +
                         '`!streak` - Cek daily streak kamu\n' +
                         '`!vstreak [@user]` - Cek voice pair streak\n' +
+                        '`!nilai @user` - Kasih poin prestasi ke teman\n' +
+                        '`!prestasi [@user]` - Cek poin prestasi\n' +
+                        '`!peringkat` - Lihat peringkat prestasi S3\n' +
                         '`!saran <text>` - Buat saran baru\n' +
                         '`s3!help` - Bantuan alternatif',
                     inline: false 

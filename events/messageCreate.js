@@ -427,6 +427,130 @@ module.exports = {
             return;
         }
 
+        // ===========================
+        // REPUTATION SYSTEM (SEKOLAH THEME)
+        // ===========================
+        // !nilai @user -> kasih poin prestasi ke user
+        if (lower === '!nilai' || lower.startsWith('!nilai ')) {
+            if (!message.guild) return;
+
+            const target = message.mentions.users.first();
+            if (!target) {
+                const reply = await message.reply('📝 Format: `!nilai @user`\nKasih poin prestasi ke teman kamu!');
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+                return;
+            }
+
+            if (target.bot) {
+                const reply = await message.reply('❌ Bot tidak bisa dapat poin prestasi!');
+                setTimeout(() => reply.delete().catch(() => { }), 8000);
+                return;
+            }
+
+            try {
+                const { giveReputation } = require('../utils/reputation');
+                const result = giveReputation(message.guild.id, message.author.id, target.id);
+
+                if (!result.success) {
+                    const reply = await message.reply(`❌ ${result.error}`);
+                    setTimeout(() => reply.delete().catch(() => { }), 15000);
+                    return;
+                }
+
+                const reply = await message.reply(
+                    `⭐ **Poin Prestasi Diberikan!**\n` +
+                    `Kamu kasih poin prestasi ke **${target.username}**!\n` +
+                    `📊 **${target.username}** sekarang punya **${result.totalRep} poin prestasi** dari **${result.uniqueGivers} teman** berbeda.\n\n` +
+                    `💡 *Kamu bisa kasih poin lagi ke user ini besok (cooldown 24 jam)*`
+                );
+                setTimeout(() => reply.delete().catch(() => { }), 20000);
+            } catch (error) {
+                console.error('Error in !nilai command:', error);
+                const reply = await message.reply('❌ Terjadi error saat kasih poin prestasi. Coba lagi nanti.');
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+            }
+            return;
+        }
+
+        // !prestasi [@user] -> cek poin prestasi
+        if (lower === '!prestasi' || lower.startsWith('!prestasi ')) {
+            if (!message.guild) return;
+
+            const target = message.mentions.users.first() || message.author;
+            
+            try {
+                const { getReputation } = require('../utils/reputation');
+                const rep = getReputation(message.guild.id, target.id);
+
+                if (!rep || rep.totalRep === 0) {
+                    const reply = await message.reply(
+                        `📊 **Poin Prestasi ${target.id === message.author.id ? 'kamu' : target.username}**: **0**\n` +
+                        `Belum ada yang kasih poin prestasi ${target.id === message.author.id ? 'ke kamu' : 'ke user ini'}.\n` +
+                        `💡 *Gunakan \`!nilai @user\` untuk kasih poin prestasi!*`
+                    );
+                    setTimeout(() => reply.delete().catch(() => { }), 15000);
+                    return;
+                }
+
+                const embed = new EmbedBuilder()
+                    .setColor('#FFD700')
+                    .setTitle('⭐ Poin Prestasi')
+                    .setDescription(`${target.id === message.author.id ? 'Poin prestasi kamu' : `Poin prestasi ${target.username}`}: **${rep.totalRep} poin**`)
+                    .addFields(
+                        { name: '👥 Dari teman', value: `**${rep.uniqueGivers}** teman berbeda`, inline: true },
+                        { name: '📈 Total', value: `**${rep.totalRep}** poin prestasi`, inline: true },
+                    )
+                    .setFooter({ text: 'Poin prestasi = apresiasi dari teman-teman di S3! 💫' });
+
+                const reply = await message.reply({ embeds: [embed] });
+                setTimeout(() => reply.delete().catch(() => { }), 25000);
+            } catch (error) {
+                console.error('Error in !prestasi command:', error);
+                const reply = await message.reply('❌ Terjadi error saat mengecek poin prestasi. Coba lagi nanti.');
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+            }
+            return;
+        }
+
+        // !peringkat -> leaderboard poin prestasi
+        if (lower === '!peringkat' || lower.startsWith('!peringkat ')) {
+            if (!message.guild) return;
+
+            try {
+                const { getTopReputation } = require('../utils/reputation');
+                const top = getTopReputation(message.guild.id, 10);
+
+                if (!top.length) {
+                    const reply = await message.reply(
+                        `📊 **Peringkat Prestasi S3**\n` +
+                        `Belum ada yang punya poin prestasi.\n` +
+                        `💡 *Gunakan \`!nilai @user\` untuk kasih poin prestasi!*`
+                    );
+                    setTimeout(() => reply.delete().catch(() => { }), 15000);
+                    return;
+                }
+
+                const lines = top.map((user, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '📌';
+                    return `${medal} **${idx + 1}.** <@${user.userId}> — ⭐ **${user.totalRep}** poin (dari ${user.uniqueGivers} teman)`;
+                }).join('\n');
+
+                const embed = new EmbedBuilder()
+                    .setColor('#FFD700')
+                    .setTitle('🏆 Peringkat Prestasi S3')
+                    .setDescription(lines)
+                    .setFooter({ text: 'Peringkat berdasarkan poin prestasi dari teman-teman! 💫' });
+
+                const reply = await message.reply({ embeds: [embed] });
+                setTimeout(() => reply.delete().catch(() => { }), 30000);
+            } catch (error) {
+                console.error('Error in !peringkat command:', error);
+                const reply = await message.reply('❌ Terjadi error saat menampilkan peringkat. Coba lagi nanti.');
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+            }
+            return;
+        }
+
         const isStaff = () => {
             if (!message.guild || !message.member) return false;
             if (message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return true;
