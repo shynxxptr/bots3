@@ -140,17 +140,29 @@ async function handlePreview(interaction) {
 }
 
 async function handleCustomize(interaction) {
-    const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-    const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
-    const role = getUserRole(interaction.guild.id, interaction.user.id, member);
-    
-    const { getAllTemplates } = require('../utils/profileTemplates');
-    const { getAvailableFrames } = require('../utils/profileCustomization');
-    const { getUserAchievements } = require('../utils/achievements');
-    
-    const achievementsData = getUserAchievements(interaction.user.id, interaction.guild.id);
-    const availableTemplates = getAllTemplates(role);
-    const availableFrames = getAvailableFrames(role);
+    try {
+        const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
+        const role = getUserRole(interaction.guild.id, interaction.user.id, member);
+        
+        const { getAllTemplates } = require('../utils/profileTemplates');
+        const { getAvailableFrames } = require('../utils/profileCustomization');
+        const { getUserAchievements } = require('../utils/achievements');
+        
+        const achievementsData = getUserAchievements(interaction.user.id, interaction.guild.id);
+        const availableTemplates = getAllTemplates(role) || [];
+        const availableFrames = getAvailableFrames(role) || [];
+        
+        // Ensure customization has required properties
+        if (!customization.badges) {
+            customization.badges = { enabled: [], maxDisplay: role === 'free' ? 2 : 5 };
+        }
+        if (!customization.badges.enabled) {
+            customization.badges.enabled = [];
+        }
+        if (!customization.badges.maxDisplay) {
+            customization.badges.maxDisplay = role === 'free' ? 2 : 5;
+        }
     
     const embed = new EmbedBuilder()
         .setColor('#5865F2')
@@ -163,46 +175,88 @@ async function handleCustomize(interaction) {
         )
         .setFooter({ text: 'Gunakan buttons di bawah untuk customize' });
     
+    // Helper function to truncate strings
+    const truncate = (str, maxLen) => {
+        if (!str) return '';
+        const s = String(str);
+        return s.length > maxLen ? s.substring(0, maxLen - 3) + '...' : s;
+    };
+    
+    // Template select menu
+    const templateOptions = availableTemplates.slice(0, 25).map(t => {
+        const opt = {
+            label: truncate(t.name || 'Template', 100),
+            description: truncate(t.description || '', 100),
+            value: truncate(t.id || 'classic', 100),
+            default: t.id === customization.template
+        };
+        // Add emoji
+        if (t.premium) {
+            opt.emoji = '⭐';
+        } else {
+            opt.emoji = '🆓';
+        }
+        return opt;
+    });
+    
     const templateSelect = new StringSelectMenuBuilder()
         .setCustomId('profile_customize_template')
-        .setPlaceholder('Pilih Template')
-        .addOptions(
-            availableTemplates.slice(0, 25).map(t => ({
-                label: t.name,
-                description: t.description,
-                value: t.id,
-                emoji: t.premium ? '⭐' : '🆓',
-                default: t.id === customization.template
-            }))
-        );
+        .setPlaceholder(truncate('Pilih Template', 150))
+        .addOptions(templateOptions);
+    
+    // Frame select menu
+    const frameOptions = availableFrames.slice(0, 25).map(f => {
+        const label = f.replace('.png', '').replace('frame_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        return {
+            label: truncate(label, 100),
+            description: truncate('Frame preset', 100),
+            value: truncate(f, 100),
+            default: f === customization.frame?.value
+        };
+    });
     
     const frameSelect = new StringSelectMenuBuilder()
         .setCustomId('profile_customize_frame')
-        .setPlaceholder('Pilih Frame')
-        .addOptions(
-            availableFrames.slice(0, 25).map(f => ({
-                label: f.replace('.png', '').replace('frame_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-                value: f,
-                default: f === customization.frame?.value
-            }))
-        );
+        .setPlaceholder(truncate('Pilih Frame', 150))
+        .addOptions(frameOptions);
     
     // Badge selection (only unlocked achievements)
     const unlockedAchievements = achievementsData.unlocked || [];
+    const maxBadgeSelect = Math.min(25, unlockedAchievements.length);
+    const badgeOptions = unlockedAchievements.slice(0, maxBadgeSelect).map(a => {
+        const opt = {
+            label: truncate(a.name || 'Achievement', 100),
+            description: truncate(a.description || '', 100),
+            value: truncate(a.id || '', 100),
+            default: customization.badges && customization.badges.enabled && customization.badges.enabled.includes(a.id)
+        };
+        if (a.emoji) {
+            opt.emoji = a.emoji;
+        }
+        return opt;
+    });
+    
+    const maxBadgeValues = Math.min(customization.badges.maxDisplay || 5, unlockedAchievements.length, 25);
     const badgeSelect = new StringSelectMenuBuilder()
         .setCustomId('profile_customize_badges')
-        .setPlaceholder(`Pilih Badges (Max ${customization.badges.maxDisplay})`)
-        .setMinValues(0)
-        .setMaxValues(Math.min(customization.badges.maxDisplay, unlockedAchievements.length))
-        .addOptions(
-            unlockedAchievements.slice(0, 25).map(a => ({
-                label: a.name,
-                description: a.description,
-                value: a.id,
-                emoji: a.emoji,
-                default: customization.badges.enabled.includes(a.id)
-            }))
-        );
+        .setPlaceholder(truncate(`Pilih Badges (Max ${customization.badges.maxDisplay || 5})`, 150))
+        .setMinValues(0);
+    
+    // Only add options if there are any
+    if (badgeOptions.length > 0) {
+        badgeSelect.setMaxValues(Math.max(1, maxBadgeValues));
+        badgeSelect.addOptions(badgeOptions);
+    } else {
+        // Add placeholder option if no achievements
+        badgeSelect.setMaxValues(1);
+        badgeSelect.setDisabled(true);
+        badgeSelect.addOptions([{
+            label: 'No Achievements',
+            description: 'Unlock achievements first!',
+            value: 'no_achievements',
+            default: false
+        }]);
+    }
     
     const bioButton = new ButtonBuilder()
         .setCustomId('profile_customize_bio')
@@ -222,6 +276,25 @@ async function handleCustomize(interaction) {
         .setStyle(ButtonStyle.Danger)
         .setEmoji('🔄');
     
+    // Ensure we have at least one option in each select menu
+    if (templateOptions.length === 0) {
+        templateSelect.addOptions([{
+            label: 'Classic',
+            description: 'Default template',
+            value: 'classic',
+            default: true
+        }]);
+    }
+    
+    if (frameOptions.length === 0) {
+        frameSelect.addOptions([{
+            label: 'Basic Frame',
+            description: 'Default frame',
+            value: 'frame_basic.png',
+            default: true
+        }]);
+    }
+    
     const actionRow1 = new ActionRowBuilder().addComponents(templateSelect);
     const actionRow2 = new ActionRowBuilder().addComponents(frameSelect);
     const actionRow3 = new ActionRowBuilder().addComponents(badgeSelect);
@@ -232,6 +305,19 @@ async function handleCustomize(interaction) {
         components: [actionRow1, actionRow2, actionRow3, actionRow4],
         ephemeral: true
     });
+    } catch (error) {
+        console.error('Error in handleCustomize:', error);
+        if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+                content: '❌ Terjadi error saat membuka customization menu. Coba lagi nanti.',
+                ephemeral: true
+            }).catch(() => {});
+        } else {
+            await interaction.editReply({
+                content: '❌ Terjadi error saat membuka customization menu. Coba lagi nanti.'
+            }).catch(() => {});
+        }
+    }
 }
 
 async function handleCompare(interaction) {
