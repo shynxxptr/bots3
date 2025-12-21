@@ -17,6 +17,16 @@ async function generateProfileCard(user, member, customization, rankData, achiev
     const resolution = customization.layout.resolution || '1280x720';
     const [width, height] = resolution.split('x').map(Number);
     
+    // Ensure background is synced with template
+    if (customization.template && (!customization.background || customization.background.type !== 'upload')) {
+        if (!customization.background) {
+            customization.background = { type: 'template', value: customization.template };
+        } else if (customization.background.value !== customization.template) {
+            customization.background.type = 'template';
+            customization.background.value = customization.template;
+        }
+    }
+    
     const canvas = Canvas.createCanvas(width, height);
     const ctx = canvas.getContext('2d');
     
@@ -490,37 +500,53 @@ function adjustColor(color, amount) {
  */
 async function loadBackground(ctx, customization, width, height) {
     try {
+        // Determine which template to use - prioritize template field, then background.value
+        let templateName = 'classic';
+        
+        if (customization.background && customization.background.type === 'template') {
+            templateName = customization.background.value || customization.template || 'classic';
+        } else if (customization.template) {
+            // If background type is not template but template field exists, use template
+            templateName = customization.template;
+        }
+        
         let backgroundPath = null;
         
-        if (customization.background.type === 'upload') {
+        if (customization.background && customization.background.type === 'upload') {
             const userDir = path.join(__dirname, '../assets/profiles', customization.userId);
             backgroundPath = path.join(userDir, 'background.png');
-        } else if (customization.background.type === 'template') {
-            const templatePath = path.join(__dirname, '../assets/profiles/templates', customization.background.value || 'classic');
+        } else if (customization.background && customization.background.type === 'template') {
+            const templatePath = path.join(__dirname, '../assets/profiles/templates', templateName);
             backgroundPath = path.join(templatePath, 'background.png');
-        } else if (customization.background.type === 'preset') {
+        } else if (customization.background && customization.background.type === 'preset') {
             backgroundPath = path.join(__dirname, '../assets/profiles/presets', customization.background.value || 'default_background.png');
+        } else {
+            // Default: use template
+            const templatePath = path.join(__dirname, '../assets/profiles/templates', templateName);
+            backgroundPath = path.join(templatePath, 'background.png');
         }
         
         // Try to load background with resolution-specific filename first
         let bgImage = null;
-        if (backgroundPath && fs.existsSync(backgroundPath)) {
-            try {
-                bgImage = await Canvas.loadImage(backgroundPath);
-            } catch (err) {
-                console.error('Error loading background:', err);
-            }
-        }
         
-        // If template background, try resolution-specific file
-        if (!bgImage && customization.background.type === 'template') {
-            const resSpecificPath = path.join(__dirname, '../assets/profiles/templates', customization.background.value || 'classic', `background_${width}x${height}.png`);
+        // First try resolution-specific file for templates
+        if ((!customization.background || customization.background.type === 'template' || !customization.background.type) && backgroundPath) {
+            const resSpecificPath = path.join(__dirname, '../assets/profiles/templates', templateName, `background_${width}x${height}.png`);
             if (fs.existsSync(resSpecificPath)) {
                 try {
                     bgImage = await Canvas.loadImage(resSpecificPath);
                 } catch (err) {
                     console.error('Error loading resolution-specific background:', err);
                 }
+            }
+        }
+        
+        // Fallback to default background.png
+        if (!bgImage && backgroundPath && fs.existsSync(backgroundPath)) {
+            try {
+                bgImage = await Canvas.loadImage(backgroundPath);
+            } catch (err) {
+                console.error('Error loading background:', err);
             }
         }
         

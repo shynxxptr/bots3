@@ -771,6 +771,17 @@ module.exports = {
                 
                 const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
                 const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
+                
+                // Ensure template and background are synced
+                if (customization.template && (!customization.background || customization.background.type !== 'upload')) {
+                    if (!customization.background) {
+                        customization.background = { type: 'template', value: customization.template };
+                    } else if (customization.background.value !== customization.template) {
+                        customization.background.type = 'template';
+                        customization.background.value = customization.template;
+                    }
+                }
+                
                 const rankData = getUserRank(interaction.user.id, interaction.guild.id);
                 
                 if (!rankData) {

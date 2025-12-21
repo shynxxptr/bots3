@@ -94,8 +94,18 @@ async function handlePreview(interaction) {
     const member = interaction.guild.members.cache.get(target.id) || await interaction.guild.members.fetch(target.id).catch(() => null);
     
     try {
-        // Get customization
+        // Get customization - reload from store to ensure latest data
         const customization = getCustomization(interaction.guild.id, target.id, member);
+        
+        // Ensure template and background are synced
+        if (customization.template && (!customization.background || customization.background.type !== 'upload')) {
+            if (!customization.background) {
+                customization.background = { type: 'template', value: customization.template };
+            } else if (customization.background.value !== customization.template) {
+                customization.background.type = 'template';
+                customization.background.value = customization.template;
+            }
+        }
         
         // Get rank data
         const rankData = getUserRank(target.id, interaction.guild.id);
