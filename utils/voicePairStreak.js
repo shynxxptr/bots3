@@ -131,18 +131,38 @@ function markValidToday(store, pair, todayKey, now) {
             pair.candidateConsecutive = 1;
             pair.lastValidDate = todayKey;
             return { becameActive: false, streak: 0, streakBroken: true };
-        } else if (pair.lastValidDate === yesterdayKey) {
+        }
+        
+        // If lastValidDate is today, this is a duplicate call in the same day - don't increment
+        if (pair.lastValidDate === todayKey) {
+            // Already validated today, don't increment streak
+            return { becameActive: false, streak: pair.streak || 0 };
+        }
+        
+        // If lastValidDate is yesterday, this is a consecutive day - increment streak
+        if (pair.lastValidDate === yesterdayKey) {
             // Consecutive day - increment streak
             pair.streak = (pair.streak || 0) + 1;
         } else {
-            // First valid day or same day - set to 1
-            pair.streak = 1;
+            // First valid day or gap (but not broken) - set to 1 or keep current
+            // This shouldn't normally happen for active pairs, but handle it
+            if (!pair.streak || pair.streak === 0) {
+                pair.streak = 1;
+            }
         }
+        
+        // Update lastValidDate to today
         pair.lastValidDate = todayKey;
         return { becameActive: false, streak: pair.streak };
     }
 
     // candidate
+    // If lastValidDate is today, this is a duplicate call in the same day - don't change candidateConsecutive
+    if (pair.lastValidDate === todayKey) {
+        // Already validated today, keep current candidateConsecutive
+        return { becameActive: false, streak: 0 };
+    }
+    
     if (pair.lastValidDate === yesterdayKey) {
         // Consecutive day - increment candidate
         pair.candidateConsecutive = (pair.candidateConsecutive || 0) + 1;
@@ -150,7 +170,7 @@ function markValidToday(store, pair, todayKey, now) {
         // Gap detected (bolong) - reset candidate consecutive
         pair.candidateConsecutive = 1;
     } else {
-        // First valid day or same day
+        // First valid day
         pair.candidateConsecutive = 1;
     }
 
