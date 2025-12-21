@@ -286,11 +286,32 @@ async function tickVoicePairStreak(client) {
                     null;
                 if (!channel || !channel.isTextBased()) continue;
 
+                // Fetch users and members with rate limit handling
                 const [userA, userB, memberA, memberB] = await Promise.all([
-                    client.users.fetch(item.a).catch(() => null),
-                    client.users.fetch(item.b).catch(() => null),
-                    guildObj.members.fetch(item.a).catch(() => null),
-                    guildObj.members.fetch(item.b).catch(() => null),
+                    client.users.fetch(item.a).catch((err) => {
+                        if (err.code === 50035 || err.message?.includes('rate limit')) {
+                            console.warn(`Rate limited while fetching user ${item.a}`);
+                        }
+                        return null;
+                    }),
+                    client.users.fetch(item.b).catch((err) => {
+                        if (err.code === 50035 || err.message?.includes('rate limit')) {
+                            console.warn(`Rate limited while fetching user ${item.b}`);
+                        }
+                        return null;
+                    }),
+                    guildObj.members.fetch(item.a).catch((err) => {
+                        if (err.code === 50035 || err.message?.includes('rate limit')) {
+                            console.warn(`Rate limited while fetching member ${item.a}`);
+                        }
+                        return null;
+                    }),
+                    guildObj.members.fetch(item.b).catch((err) => {
+                        if (err.code === 50035 || err.message?.includes('rate limit')) {
+                            console.warn(`Rate limited while fetching member ${item.b}`);
+                        }
+                        return null;
+                    }),
                 ]);
                 if (!userA || !userB) continue;
 
