@@ -94,8 +94,8 @@ async function handlePreview(interaction) {
     const member = interaction.guild.members.cache.get(target.id) || await interaction.guild.members.fetch(target.id).catch(() => null);
     
     try {
-        // Get customization - reload from store to ensure latest data
-        const customization = getCustomization(interaction.guild.id, target.id, member);
+        // Get customization - force reload to get latest data
+        const customization = getCustomization(interaction.guild.id, target.id, member, true);
         
         // Ensure template and background are synced
         if (customization.template && (!customization.background || customization.background.type !== 'upload')) {

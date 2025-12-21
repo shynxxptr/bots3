@@ -423,15 +423,16 @@ module.exports = {
                         }).catch(() => {});
                     }
                     
+                    // Update template
                     customization.template = selectedTemplate;
                     
-                    // Also update background to match template
-                    if (!customization.background) {
-                        customization.background = { type: 'template', value: selectedTemplate };
-                    } else {
-                        customization.background.type = 'template';
-                        customization.background.value = selectedTemplate;
-                    }
+                    // ALWAYS update background to match template
+                    customization.background = { 
+                        type: 'template', 
+                        value: selectedTemplate 
+                    };
+                    
+                    console.log(`💾 Saving customization - Template: ${selectedTemplate}, Background: ${JSON.stringify(customization.background)}`);
                     
                     const saveResult = saveCustomization(interaction.guild.id, interaction.user.id, customization);
                     
@@ -441,6 +442,8 @@ module.exports = {
                             flags: MessageFlags.Ephemeral
                         }).catch(() => {});
                     }
+                    
+                    console.log(`✅ Customization saved - Template: ${saveResult.customization.template}, Background: ${JSON.stringify(saveResult.customization.background)}`);
                     
                     await interaction.followUp({
                         content: `✅ Template berhasil diubah ke **${selectedTemplate}**!`,
@@ -770,7 +773,8 @@ module.exports = {
                 const { generateProfileCard } = require('../utils/profileCardRenderer');
                 
                 const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-                const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
+                // Force reload to get latest customization
+                const customization = getCustomization(interaction.guild.id, interaction.user.id, member, true);
                 
                 // Ensure template and background are synced
                 if (customization.template && (!customization.background || customization.background.type !== 'upload')) {

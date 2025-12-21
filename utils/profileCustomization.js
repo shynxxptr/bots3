@@ -9,14 +9,27 @@ if (!fs.existsSync(PROFILES_DIR)) {
     fs.mkdirSync(PROFILES_DIR, { recursive: true });
 }
 
-function loadStore() {
+// Cache untuk force reload
+let storeCache = null;
+let storeCacheTime = 0;
+const CACHE_TTL = 1000; // 1 second cache
+
+function loadStore(forceReload = false) {
     try {
-        if (!fs.existsSync(STORE_PATH)) {
-            const initial = {};
-            fs.writeFileSync(STORE_PATH, JSON.stringify(initial, null, 4));
-            return initial;
+        // Force reload jika diminta atau cache expired
+        const now = Date.now();
+        if (forceReload || !storeCache || (now - storeCacheTime) > CACHE_TTL) {
+            if (!fs.existsSync(STORE_PATH)) {
+                const initial = {};
+                fs.writeFileSync(STORE_PATH, JSON.stringify(initial, null, 4));
+                storeCache = initial;
+                storeCacheTime = now;
+                return initial;
+            }
+            storeCache = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+            storeCacheTime = now;
         }
-        return JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+        return storeCache;
     } catch (err) {
         console.error('Failed to load profile customization store:', err);
         return {};
@@ -26,10 +39,14 @@ function loadStore() {
 function saveStore(store) {
     try {
         fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 4));
+        // Invalidate cache
+        storeCache = store;
+        storeCacheTime = Date.now();
     } catch (err) {
         console.error('Failed to save profile customization store:', err);
     }
 }
+
 
 function getUserKey(guildId, userId) {
     return `${guildId}-${userId}`;
@@ -126,8 +143,8 @@ function getDefaultCustomization(role) {
  * @param {object} member - Discord member object
  * @returns {object} User customization
  */
-function getCustomization(guildId, userId, member = null) {
-    const store = loadStore();
+function getCustomization(guildId, userId, member = null, forceReload = false) {
+    const store = loadStore(forceReload);
     const userKey = getUserKey(guildId, userId);
     const role = getUserRole(guildId, userId, member);
     
@@ -155,7 +172,19 @@ function getCustomization(guildId, userId, member = null) {
         saveStore(store);
     }
     
-    return store[userKey];
+    // Ensure template and background are synced
+    const customization = store[userKey];
+    if (customization.template && (!customization.background || customization.background.type !== 'upload')) {
+        if (!customization.background || customization.background.value !== customization.template) {
+            customization.background = {
+                type: 'template',
+                value: customization.template
+            };
+            saveStore(store);
+        }
+    }
+    
+    return customization;
 }
 
 /**
