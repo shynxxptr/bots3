@@ -24,6 +24,19 @@ module.exports = {
                     });
                 }
             }
+            
+            // Message Count Tracking
+            try {
+                const { incrementMessageCount } = require('../utils/messageCount');
+                incrementMessageCount(message.guild.id, message.author.id);
+                
+                // Check achievements
+                const { checkAchievementsOnStatUpdate } = require('../utils/achievementNotifications');
+                await checkAchievementsOnStatUpdate(message.client, message.guild.id, message.author.id);
+            } catch (error) {
+                // Silent fail - don't break message handling
+                console.error('Error tracking message count:', error);
+            }
         }
 
         // Counting Logic
@@ -450,6 +463,14 @@ module.exports = {
             try {
                 const { giveReputation } = require('../utils/reputation');
                 const result = giveReputation(message.guild.id, message.author.id, target.id);
+                
+                // Check achievements for reputation
+                try {
+                    const { checkAchievementsOnStatUpdate } = require('../utils/achievementNotifications');
+                    await checkAchievementsOnStatUpdate(message.client, message.guild.id, target.id);
+                } catch (error) {
+                    // Silent fail
+                }
 
                 if (!result.success) {
                     const reply = await message.reply(`❌ ${result.error}`);

@@ -217,6 +217,14 @@ async function tickVoicePairStreak(client) {
             // Track voice time for each member (even if alone)
             for (const memberId of members) {
                 addVoiceTime(guild.id, memberId, settings.tickSeconds);
+                
+                // Check achievements for voice time
+                try {
+                    const { checkAchievementsOnStatUpdate } = require('./achievementNotifications');
+                    checkAchievementsOnStatUpdate(client, guild.id, memberId).catch(() => {});
+                } catch (err) {
+                    // Silent fail
+                }
             }
 
             if (members.length < 2) continue;
