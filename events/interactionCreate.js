@@ -1,4 +1,4 @@
-const { Events, AttachmentBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, PermissionsBitField, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { Events, AttachmentBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, PermissionsBitField, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const { createWelcomeImage } = require('../utils/welcomeImage');
 
 module.exports = {
@@ -581,7 +581,7 @@ module.exports = {
             }
             
             if (interaction.customId === 'profile_customize_preview') {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
                 
                 const { getCustomization, getUserRole } = require('../utils/profileCustomization');
                 const { getUserRank } = require('../utils/leveling');
@@ -637,7 +637,7 @@ module.exports = {
             }
             
             if (interaction.customId === 'profile_customize_reset') {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
                 
                 const { resetCustomization, getUserRole } = require('../utils/profileCustomization');
                 const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
@@ -724,7 +724,7 @@ module.exports = {
         
         // --- PROFILE CUSTOMIZATION MODAL SUBMIT ---
         if (interaction.isModalSubmit() && interaction.customId === 'profile_customize_bio_modal') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: MessageFlags.Ephemeral });
             
             const bioText = interaction.fields.getTextInputValue('bio_text');
             

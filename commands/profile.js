@@ -192,113 +192,111 @@ async function handleCustomize(interaction) {
         return true;
     };
     
-    // Template select menu
-    const templateOptions = availableTemplates.slice(0, 25)
-        .map(t => {
-            if (!t || !t.id) return null;
-            const opt = {
-                label: truncate(t.name || 'Template', 100),
-                description: truncate(t.description || '', 100),
-                value: truncate(t.id || 'classic', 100),
-                default: false
-            };
-            // Only set default if it matches
-            if (t.id && t.id === customization.template) {
-                opt.default = true;
-            }
-            // Add emoji as string (Discord.js will handle it)
-            if (t.premium) {
-                opt.emoji = '⭐';
-            } else {
-                opt.emoji = '🆓';
-            }
-            return opt;
-        })
-        .filter(opt => opt && validateOption(opt)); // Filter out invalid options
+    // Template select menu - simplified
+    const templateOptions = [];
+    for (const t of availableTemplates.slice(0, 25)) {
+        if (!t || !t.id) continue;
+        const label = truncate(t.name || 'Template', 100);
+        const desc = truncate(t.description || '', 100);
+        const val = truncate(t.id || 'classic', 100);
+        
+        if (!label || !val || label.length === 0 || val.length === 0) continue;
+        
+        const opt = {
+            label: label,
+            value: val,
+            default: (t.id === customization.template)
+        };
+        // Only add description if not empty
+        if (desc && desc.length > 0) {
+            opt.description = desc;
+        }
+        templateOptions.push(opt);
+    }
     
-    const templateSelect = new StringSelectMenuBuilder()
-        .setCustomId('profile_customize_template')
-        .setPlaceholder(truncate('Pilih Template', 150));
-    
-    if (templateOptions.length > 0) {
-        templateSelect.addOptions(templateOptions);
-    } else {
-        // Fallback option
-        templateSelect.addOptions([{
+    // Ensure at least one option
+    if (templateOptions.length === 0) {
+        templateOptions.push({
             label: 'Classic',
             description: 'Default template',
             value: 'classic',
             default: true
-        }]);
+        });
     }
     
-    // Frame select menu
-    const frameOptions = availableFrames.slice(0, 25)
-        .map(f => {
-            if (!f || typeof f !== 'string' || f.length === 0) return null;
-            const label = f.replace('.png', '').replace('frame_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-            const opt = {
-                label: truncate(label, 100),
-                description: truncate('Frame preset', 100),
-                value: truncate(f, 100),
-                default: f === customization.frame?.value
-            };
-            return opt;
-        })
-        .filter(opt => opt && validateOption(opt)); // Filter out invalid options
+    const templateSelect = new StringSelectMenuBuilder()
+        .setCustomId('profile_customize_template')
+        .setPlaceholder('Pilih Template')
+        .addOptions(templateOptions);
     
-    const frameSelect = new StringSelectMenuBuilder()
-        .setCustomId('profile_customize_frame')
-        .setPlaceholder(truncate('Pilih Frame', 150));
+    // Frame select menu - simplified
+    const frameOptions = [];
+    for (const f of availableFrames.slice(0, 25)) {
+        if (!f || typeof f !== 'string' || f.length === 0) continue;
+        const label = f.replace('.png', '').replace('frame_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const labelTruncated = truncate(label, 100);
+        const val = truncate(f, 100);
+        
+        if (!labelTruncated || !val || labelTruncated.length === 0 || val.length === 0) continue;
+        
+        frameOptions.push({
+            label: labelTruncated,
+            description: 'Frame preset',
+            value: val,
+            default: (f === customization.frame?.value)
+        });
+    }
     
-    if (frameOptions.length > 0) {
-        frameSelect.addOptions(frameOptions);
-    } else {
-        // Fallback option
-        frameSelect.addOptions([{
+    // Ensure at least one option
+    if (frameOptions.length === 0) {
+        frameOptions.push({
             label: 'Basic Frame',
             description: 'Default frame',
             value: 'frame_basic.png',
             default: true
-        }]);
+        });
     }
     
-    // Badge selection (only unlocked achievements)
+    const frameSelect = new StringSelectMenuBuilder()
+        .setCustomId('profile_customize_frame')
+        .setPlaceholder('Pilih Frame')
+        .addOptions(frameOptions);
+    
+    // Badge selection (only unlocked achievements) - simplified
     const unlockedAchievements = achievementsData.unlocked || [];
-    const maxBadgeSelect = Math.min(25, unlockedAchievements.length);
-    const badgeOptions = unlockedAchievements.slice(0, maxBadgeSelect)
-        .filter(a => a && a.id && a.name) // Filter valid achievements
-        .map(a => {
-            const opt = {
-                label: truncate(a.name || 'Achievement', 100),
-                description: truncate(a.description || '', 100),
-                value: truncate(a.id || '', 100),
-                default: false
-            };
-            // Only set default if it matches
-            if (customization.badges && customization.badges.enabled && customization.badges.enabled.includes(a.id)) {
-                opt.default = true;
-            }
-            // Add emoji if available
-            if (a.emoji && typeof a.emoji === 'string') {
-                opt.emoji = a.emoji;
-            }
-            return opt;
-        })
-        .filter(opt => opt && validateOption(opt)); // Filter out invalid options
+    const badgeOptions = [];
+    
+    for (const a of unlockedAchievements.slice(0, 25)) {
+        if (!a || !a.id || !a.name) continue;
+        
+        const label = truncate(a.name || 'Achievement', 100);
+        const desc = truncate(a.description || '', 100);
+        const val = truncate(a.id || '', 100);
+        
+        if (!label || !val || label.length === 0 || val.length === 0) continue;
+        
+        const opt = {
+            label: label,
+            value: val,
+            default: (customization.badges && customization.badges.enabled && customization.badges.enabled.includes(a.id))
+        };
+        // Only add description if not empty
+        if (desc && desc.length > 0) {
+            opt.description = desc;
+        }
+        badgeOptions.push(opt);
+    }
     
     const maxBadgeValues = Math.min(customization.badges.maxDisplay || 5, unlockedAchievements.length, 25);
     const badgeSelect = new StringSelectMenuBuilder()
         .setCustomId('profile_customize_badges')
-        .setPlaceholder(truncate(`Pilih Badges (Max ${customization.badges.maxDisplay || 5})`, 150))
+        .setPlaceholder(`Pilih Badges (Max ${customization.badges.maxDisplay || 5})`)
         .setMinValues(0);
     
-    // Only add options if there are any
     if (badgeOptions.length > 0) {
         badgeSelect.setMaxValues(Math.max(1, Math.min(maxBadgeValues, badgeOptions.length)));
         badgeSelect.addOptions(badgeOptions);
     } else {
-        // Add placeholder option if no achievements
         badgeSelect.setMaxValues(1);
         badgeSelect.setDisabled(true);
         badgeSelect.addOptions([{
