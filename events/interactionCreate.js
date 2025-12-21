@@ -664,60 +664,136 @@ module.exports = {
             const { getCustomization, saveCustomization, getUserRole } = require('../utils/profileCustomization');
             
             if (interaction.customId === 'profile_customize_template') {
-                await interaction.deferUpdate();
-                
-                const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-                const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
-                
-                customization.template = interaction.values[0];
-                saveCustomization(interaction.guild.id, interaction.user.id, customization);
-                
-                await interaction.followUp({
-                    content: `✅ Template berhasil diubah ke **${interaction.values[0]}**!`,
-                    ephemeral: true
-                });
+                try {
+                    await interaction.deferUpdate();
+                    
+                    if (!interaction.values || interaction.values.length === 0) {
+                        return interaction.followUp({
+                            content: '❌ Template tidak valid!',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    }
+                    
+                    const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                    const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
+                    
+                    const selectedTemplate = interaction.values[0];
+                    customization.template = selectedTemplate;
+                    
+                    // Also update background to match template
+                    if (!customization.background) {
+                        customization.background = { type: 'template', value: selectedTemplate };
+                    } else {
+                        customization.background.type = 'template';
+                        customization.background.value = selectedTemplate;
+                    }
+                    
+                    saveCustomization(interaction.guild.id, interaction.user.id, customization);
+                    
+                    await interaction.followUp({
+                        content: `✅ Template berhasil diubah ke **${interaction.values[0]}**!`,
+                        flags: MessageFlags.Ephemeral
+                    }).catch(() => {});
+                } catch (error) {
+                    console.error('Error in profile_customize_template:', error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({
+                            content: '❌ Terjadi error saat mengubah template. Coba lagi nanti.',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    } else {
+                        await interaction.followUp({
+                            content: '❌ Terjadi error saat mengubah template. Coba lagi nanti.',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    }
+                }
                 return;
             }
             
             if (interaction.customId === 'profile_customize_frame') {
-                await interaction.deferUpdate();
-                
-                const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-                const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
-                
-                if (!customization.frame) {
-                    customization.frame = { type: 'preset', value: '' };
+                try {
+                    await interaction.deferUpdate();
+                    
+                    if (!interaction.values || interaction.values.length === 0) {
+                        return interaction.followUp({
+                            content: '❌ Frame tidak valid!',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    }
+                    
+                    const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                    const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
+                    
+                    if (!customization.frame) {
+                        customization.frame = { type: 'preset', value: '' };
+                    }
+                    customization.frame.value = interaction.values[0];
+                    saveCustomization(interaction.guild.id, interaction.user.id, customization);
+                    
+                    await interaction.followUp({
+                        content: `✅ Frame berhasil diubah ke **${interaction.values[0]}**!`,
+                        flags: MessageFlags.Ephemeral
+                    }).catch(() => {});
+                } catch (error) {
+                    console.error('Error in profile_customize_frame:', error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({
+                            content: '❌ Terjadi error saat mengubah frame. Coba lagi nanti.',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    } else {
+                        await interaction.followUp({
+                            content: '❌ Terjadi error saat mengubah frame. Coba lagi nanti.',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    }
                 }
-                customization.frame.value = interaction.values[0];
-                saveCustomization(interaction.guild.id, interaction.user.id, customization);
-                
-                await interaction.followUp({
-                    content: `✅ Frame berhasil diubah ke **${interaction.values[0]}**!`,
-                    ephemeral: true
-                });
                 return;
             }
             
             if (interaction.customId === 'profile_customize_badges') {
-                await interaction.deferUpdate();
-                
-                const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-                const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
-                
-                if (interaction.values.length > customization.badges.maxDisplay) {
-                    return interaction.followUp({
-                        content: `❌ Kamu hanya bisa memilih maksimal ${customization.badges.maxDisplay} badges!`,
-                        ephemeral: true
-                    });
+                try {
+                    await interaction.deferUpdate();
+                    
+                    const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                    const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
+                    
+                    // Filter out invalid values (like 'no_achievements')
+                    const validValues = (interaction.values || []).filter(v => v && v !== 'no_achievements');
+                    
+                    if (!customization.badges) {
+                        customization.badges = { enabled: [], maxDisplay: 5 };
+                    }
+                    
+                    if (validValues.length > (customization.badges.maxDisplay || 5)) {
+                        return interaction.followUp({
+                            content: `❌ Kamu hanya bisa memilih maksimal ${customization.badges.maxDisplay || 5} badges!`,
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    }
+                    
+                    customization.badges.enabled = validValues;
+                    saveCustomization(interaction.guild.id, interaction.user.id, customization);
+                    
+                    await interaction.followUp({
+                        content: `✅ Badges berhasil diubah! (${validValues.length}/${customization.badges.maxDisplay || 5})`,
+                        flags: MessageFlags.Ephemeral
+                    }).catch(() => {});
+                } catch (error) {
+                    console.error('Error in profile_customize_badges:', error);
+                    if (!interaction.replied && !interaction.deferred) {
+                        await interaction.reply({
+                            content: '❌ Terjadi error saat mengubah badges. Coba lagi nanti.',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    } else {
+                        await interaction.followUp({
+                            content: '❌ Terjadi error saat mengubah badges. Coba lagi nanti.',
+                            flags: MessageFlags.Ephemeral
+                        }).catch(() => {});
+                    }
                 }
-                
-                customization.badges.enabled = interaction.values;
-                saveCustomization(interaction.guild.id, interaction.user.id, customization);
-                
-                await interaction.followUp({
-                    content: `✅ Badges berhasil diubah! (${interaction.values.length}/${customization.badges.maxDisplay})`,
-                    ephemeral: true
-                });
                 return;
             }
         }

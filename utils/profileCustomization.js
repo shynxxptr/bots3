@@ -88,7 +88,7 @@ function getDefaultCustomization(role) {
         bio: '',
         background: {
             type: 'template',
-            value: 'classic'
+            value: 'classic' // Will use template background
         },
         frame: {
             type: 'preset',

@@ -502,8 +502,29 @@ async function loadBackground(ctx, customization, width, height) {
             backgroundPath = path.join(__dirname, '../assets/profiles/presets', customization.background.value || 'default_background.png');
         }
         
+        // Try to load background with resolution-specific filename first
+        let bgImage = null;
         if (backgroundPath && fs.existsSync(backgroundPath)) {
-            const bgImage = await Canvas.loadImage(backgroundPath);
+            try {
+                bgImage = await Canvas.loadImage(backgroundPath);
+            } catch (err) {
+                console.error('Error loading background:', err);
+            }
+        }
+        
+        // If template background, try resolution-specific file
+        if (!bgImage && customization.background.type === 'template') {
+            const resSpecificPath = path.join(__dirname, '../assets/profiles/templates', customization.background.value || 'classic', `background_${width}x${height}.png`);
+            if (fs.existsSync(resSpecificPath)) {
+                try {
+                    bgImage = await Canvas.loadImage(resSpecificPath);
+                } catch (err) {
+                    console.error('Error loading resolution-specific background:', err);
+                }
+            }
+        }
+        
+        if (bgImage) {
             ctx.drawImage(bgImage, 0, 0, width, height);
         } else {
             // Enhanced default gradient background
