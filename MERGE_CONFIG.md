@@ -96,3 +96,4 @@ Pastikan config.json kamu punya:
 - Setelah merge, test bot untuk pastikan semua setting masih benar
 
 
+
