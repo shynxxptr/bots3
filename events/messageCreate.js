@@ -457,6 +457,29 @@ module.exports = {
                     return;
                 }
 
+                // Send notification to reputation channel
+                const REPUTATION_CHANNEL_ID = '1444690096430256199';
+                const notifyChannel = message.guild.channels.cache.get(REPUTATION_CHANNEL_ID);
+                
+                if (notifyChannel && notifyChannel.isTextBased()) {
+                    try {
+                        const embed = new EmbedBuilder()
+                            .setColor('#FFD700')
+                            .setTitle('⭐ Poin Prestasi Diberikan!')
+                            .setDescription(
+                                `<@${message.author.id}> kasih poin prestasi ke <@${target.id}>!\n\n` +
+                                `📊 **${target.username}** sekarang punya **${result.totalRep} poin prestasi** dari **${result.uniqueGivers} teman** berbeda.`
+                            )
+                            .setThumbnail(target.displayAvatarURL({ dynamic: true }))
+                            .setFooter({ text: 'Poin prestasi = apresiasi dari teman-teman di S3! 💫' })
+                            .setTimestamp();
+
+                        await notifyChannel.send({ embeds: [embed] });
+                    } catch (notifyError) {
+                        console.error('Error sending reputation notification:', notifyError);
+                    }
+                }
+
                 const reply = await message.reply(
                     `⭐ **Poin Prestasi Diberikan!**\n` +
                     `Kamu kasih poin prestasi ke **${target.username}**!\n` +
