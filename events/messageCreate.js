@@ -584,6 +584,46 @@ module.exports = {
             return;
         }
 
+        // !setstreak @user1 @user2 <streak> -> set voice pair streak (staff-only)
+        if (lower.startsWith('!setstreak')) {
+            if (!message.guild) return;
+            if (!isStaff()) return;
+
+            const mentions = message.mentions.users;
+            if (mentions.size < 2) {
+                const usage = await message.reply('Format: `!setstreak @user1 @user2 <streak>`\nContoh: `!setstreak @user1 @user2 5`');
+                setTimeout(() => usage.delete().catch(() => { }), 10000);
+                return;
+            }
+
+            const users = Array.from(mentions.values()).slice(0, 2);
+            const parts = content.split(/\s+/);
+            const streakStr = parts.find((part, idx) => idx > 0 && !part.startsWith('<@') && /^\d+$/.test(part));
+
+            if (!streakStr) {
+                const usage = await message.reply('Format: `!setstreak @user1 @user2 <streak>`\nContoh: `!setstreak @user1 @user2 5`');
+                setTimeout(() => usage.delete().catch(() => { }), 10000);
+                return;
+            }
+
+            const { setPairStreak } = require('../utils/voicePairStreak');
+            const res = setPairStreak(message.guild.id, users[0].id, users[1].id, streakStr);
+
+            if (!res.success) {
+                const reply = await message.reply(`❌ ${res.error || 'Gagal set streak'}`);
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+                return;
+            }
+
+            const info = await message.channel.send(
+                `✅ Voice streak **${users[0].username}** x **${users[1].username}** diset ke **${res.streak} hari**.\n` +
+                `📅 lastValidDate: \`${res.lastValidDate}\` (akan increment besok jika valid)`
+            );
+            setTimeout(() => info.delete().catch(() => { }), 10000);
+            await message.delete().catch(() => { });
+            return;
+        }
+
         // Admin-only: post Ticket Box panel in the current channel
         if (lower === '!ticketbox') {
             if (!message.guild || !message.member) return;

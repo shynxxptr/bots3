@@ -354,6 +354,54 @@ function getTopPairsForUser(guildId, userId, limit = 5) {
 }
 
 /**
+ * Set streak for a pair manually (staff-only)
+ * This will set the streak value and update lastValidDate to today
+ * so that the streak will increment correctly on the next day
+ */
+function setPairStreak(guildId, userA, userB, streak) {
+    const store = loadStore();
+    const pair = ensurePair(store, guildId, userA, userB);
+    const todayKey = getDateKey();
+    
+    // Validate streak value
+    const streakNum = parseInt(streak, 10);
+    if (isNaN(streakNum) || streakNum < 0) {
+        return { success: false, error: 'Streak harus berupa angka >= 0' };
+    }
+    
+    // Set streak
+    pair.streak = streakNum;
+    
+    // Update status based on streak
+    if (streakNum > 0) {
+        pair.status = 'active';
+        pair.lastActiveDate = todayKey;
+    } else {
+        pair.status = 'candidate';
+        pair.candidateConsecutive = 0;
+    }
+    
+    // Set lastValidDate to today so that tomorrow it will increment correctly
+    // This is crucial: if we set streak today, tomorrow's markValidToday will see
+    // lastValidDate === yesterdayKey and will increment the streak
+    pair.lastValidDate = todayKey;
+    
+    // Reset today's counters to avoid confusion
+    pair.todayKey = todayKey;
+    pair.todaySeconds = 0;
+    pair.todayValid = false;
+    
+    saveStore(store);
+    
+    return { 
+        success: true, 
+        streak: pair.streak,
+        status: pair.status,
+        lastValidDate: pair.lastValidDate
+    };
+}
+
+/**
  * Test streak notification - generate and send a test streak card
  */
 async function testStreakNotification(client, guildId, userId1, userId2, streak = 5) {
@@ -411,6 +459,7 @@ module.exports = {
     getSettings,
     testStreakNotification,
     getDateKey,
+    setPairStreak,
 };
 
 
