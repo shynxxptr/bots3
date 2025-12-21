@@ -201,6 +201,9 @@ async function tickVoicePairStreak(client) {
     const todayKey = getDateKey(new Date(now));
     const notifyQueue = [];
 
+    // Track voice time for all users
+    const { addVoiceTime } = require('./voiceTime');
+
     // Build pairs from voice channels in each guild
     for (const guild of client.guilds.cache.values()) {
         // Only track for guilds the bot can see
@@ -210,6 +213,11 @@ async function tickVoicePairStreak(client) {
             const members = Array.from(channel.members?.values?.() || [])
                 .filter(m => m && !m.user?.bot)
                 .map(m => m.id);
+
+            // Track voice time for each member (even if alone)
+            for (const memberId of members) {
+                addVoiceTime(guild.id, memberId, settings.tickSeconds);
+            }
 
             if (members.length < 2) continue;
             if (members.length > settings.maxMembersPerChannel) continue;

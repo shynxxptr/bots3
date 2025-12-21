@@ -574,6 +574,88 @@ module.exports = {
             return;
         }
 
+        // ===========================
+        // VOICE TIME TRACKING
+        // ===========================
+        // !voicetime [@user] -> cek total waktu voice
+        if (lower === '!voicetime' || lower.startsWith('!voicetime ')) {
+            if (!message.guild) return;
+
+            const target = message.mentions.users.first() || message.author;
+            
+            try {
+                const { getVoiceTime, formatVoiceTime } = require('../utils/voiceTime');
+                const voiceTime = getVoiceTime(message.guild.id, target.id);
+
+                if (!voiceTime || voiceTime.totalSeconds === 0) {
+                    const reply = await message.reply(
+                        `🎤 **Total Waktu Voice ${target.id === message.author.id ? 'kamu' : target.username}**: **0**\n` +
+                        `Belum ada aktivitas di voice channel.\n` +
+                        `💡 *Gabung voice channel untuk mulai tracking waktu!*`
+                    );
+                    setTimeout(() => reply.delete().catch(() => { }), 15000);
+                    return;
+                }
+
+                const embed = new EmbedBuilder()
+                    .setColor('#5865F2')
+                    .setTitle('🎤 Total Waktu Voice')
+                    .setDescription(`${target.id === message.author.id ? 'Total waktu voice kamu' : `Total waktu voice ${target.username}`}: **${formatVoiceTime(voiceTime.totalSeconds)}**`)
+                    .addFields(
+                        { name: '⏱️ Total', value: `**${formatVoiceTime(voiceTime.totalSeconds)}**`, inline: true },
+                        { name: '📊 Jam', value: `**${voiceTime.totalHours}** jam`, inline: true },
+                    )
+                    .setFooter({ text: 'Waktu di-track otomatis saat kamu di voice channel! 🎙️' });
+
+                const reply = await message.reply({ embeds: [embed] });
+                setTimeout(() => reply.delete().catch(() => { }), 25000);
+            } catch (error) {
+                console.error('Error in !voicetime command:', error);
+                const reply = await message.reply('❌ Terjadi error saat mengecek waktu voice. Coba lagi nanti.');
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+            }
+            return;
+        }
+
+        // !voicelb -> leaderboard total waktu voice
+        if (lower === '!voicelb' || lower.startsWith('!voicelb ')) {
+            if (!message.guild) return;
+
+            try {
+                const { getTopVoiceTime, formatVoiceTime } = require('../utils/voiceTime');
+                const top = getTopVoiceTime(message.guild.id, 10);
+
+                if (!top.length) {
+                    const reply = await message.reply(
+                        `🎤 **Leaderboard Waktu Voice S3**\n` +
+                        `Belum ada yang punya waktu voice.\n` +
+                        `💡 *Gabung voice channel untuk mulai tracking waktu!*`
+                    );
+                    setTimeout(() => reply.delete().catch(() => { }), 15000);
+                    return;
+                }
+
+                const lines = top.map((user, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🎤';
+                    return `${medal} **${idx + 1}.** <@${user.userId}> — **${formatVoiceTime(user.totalSeconds)}** (${user.totalHours}j)`;
+                }).join('\n');
+
+                const embed = new EmbedBuilder()
+                    .setColor('#5865F2')
+                    .setTitle('🏆 Leaderboard Waktu Voice S3')
+                    .setDescription(lines)
+                    .setFooter({ text: 'Peringkat berdasarkan total waktu di voice channel! 🎙️' });
+
+                const reply = await message.reply({ embeds: [embed] });
+                setTimeout(() => reply.delete().catch(() => { }), 30000);
+            } catch (error) {
+                console.error('Error in !voicelb command:', error);
+                const reply = await message.reply('❌ Terjadi error saat menampilkan leaderboard. Coba lagi nanti.');
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+            }
+            return;
+        }
+
         const isStaff = () => {
             if (!message.guild || !message.member) return false;
             if (message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return true;
@@ -765,6 +847,38 @@ module.exports = {
             const info = await message.channel.send(
                 `✅ Voice streak **${users[0].username}** x **${users[1].username}** diset ke **${res.streak} hari**.\n` +
                 `📅 lastValidDate: \`${res.lastValidDate}\` (akan increment besok jika valid)`
+            );
+            setTimeout(() => info.delete().catch(() => { }), 10000);
+            await message.delete().catch(() => { });
+            return;
+        }
+
+        // !setvoicetime @user <hours> -> set voice time (staff-only)
+        if (lower.startsWith('!setvoicetime')) {
+            if (!message.guild) return;
+            if (!isStaff()) return;
+
+            const parts = content.split(/\s+/);
+            const hoursStr = parts[2];
+            const target = message.mentions.users.first();
+
+            if (!target || !hoursStr) {
+                const usage = await message.reply('Format: `!setvoicetime @user <hours>`\nContoh: `!setvoicetime @user 10.5`');
+                setTimeout(() => usage.delete().catch(() => { }), 10000);
+                return;
+            }
+
+            const { setVoiceTime, formatVoiceTime } = require('../utils/voiceTime');
+            const res = setVoiceTime(message.guild.id, target.id, hoursStr);
+
+            if (!res.success) {
+                const reply = await message.reply(`❌ ${res.error || 'Gagal set voice time'}`);
+                setTimeout(() => reply.delete().catch(() => { }), 10000);
+                return;
+            }
+
+            const info = await message.channel.send(
+                `✅ Voice time **${target.username}** diset ke **${formatVoiceTime(res.totalSeconds)}** (${res.totalHours} jam).`
             );
             setTimeout(() => info.delete().catch(() => { }), 10000);
             await message.delete().catch(() => { });

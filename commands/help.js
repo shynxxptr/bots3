@@ -33,6 +33,8 @@ module.exports = {
                         '`!nilai @user` - Kasih poin prestasi ke teman\n' +
                         '`!prestasi [@user]` - Cek poin prestasi\n' +
                         '`!peringkat` - Lihat peringkat prestasi S3\n' +
+                        '`!voicetime [@user]` - Cek total waktu voice\n' +
+                        '`!voicelb` - Leaderboard waktu voice\n' +
                         '`!saran <text>` - Buat saran baru\n' +
                         '`s3!help` - Bantuan alternatif',
                     inline: false 
