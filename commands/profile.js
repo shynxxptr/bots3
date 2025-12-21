@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { SlashCommandBuilder, AttachmentBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const { getCustomization, saveCustomization, getUserRole, resetCustomization } = require('../utils/profileCustomization');
 const { getUserAchievements, getAllAchievements } = require('../utils/achievements');
 const { getUserRank } = require('../utils/leveling');
@@ -178,63 +178,114 @@ async function handleCustomize(interaction) {
     // Helper function to truncate strings
     const truncate = (str, maxLen) => {
         if (!str) return '';
-        const s = String(str);
+        const s = String(str).trim();
+        if (s.length === 0) return '';
         return s.length > maxLen ? s.substring(0, maxLen - 3) + '...' : s;
     };
     
+    // Helper function to validate select option
+    const validateOption = (opt) => {
+        if (!opt) return false;
+        if (!opt.value || opt.value.length === 0 || opt.value.length > 100) return false;
+        if (!opt.label || opt.label.length === 0 || opt.label.length > 100) return false;
+        if (opt.description && opt.description.length > 100) return false;
+        return true;
+    };
+    
     // Template select menu
-    const templateOptions = availableTemplates.slice(0, 25).map(t => {
-        const opt = {
-            label: truncate(t.name || 'Template', 100),
-            description: truncate(t.description || '', 100),
-            value: truncate(t.id || 'classic', 100),
-            default: t.id === customization.template
-        };
-        // Add emoji
-        if (t.premium) {
-            opt.emoji = '⭐';
-        } else {
-            opt.emoji = '🆓';
-        }
-        return opt;
-    });
+    const templateOptions = availableTemplates.slice(0, 25)
+        .map(t => {
+            if (!t || !t.id) return null;
+            const opt = {
+                label: truncate(t.name || 'Template', 100),
+                description: truncate(t.description || '', 100),
+                value: truncate(t.id || 'classic', 100),
+                default: false
+            };
+            // Only set default if it matches
+            if (t.id && t.id === customization.template) {
+                opt.default = true;
+            }
+            // Add emoji as string (Discord.js will handle it)
+            if (t.premium) {
+                opt.emoji = '⭐';
+            } else {
+                opt.emoji = '🆓';
+            }
+            return opt;
+        })
+        .filter(opt => opt && validateOption(opt)); // Filter out invalid options
     
     const templateSelect = new StringSelectMenuBuilder()
         .setCustomId('profile_customize_template')
-        .setPlaceholder(truncate('Pilih Template', 150))
-        .addOptions(templateOptions);
+        .setPlaceholder(truncate('Pilih Template', 150));
+    
+    if (templateOptions.length > 0) {
+        templateSelect.addOptions(templateOptions);
+    } else {
+        // Fallback option
+        templateSelect.addOptions([{
+            label: 'Classic',
+            description: 'Default template',
+            value: 'classic',
+            default: true
+        }]);
+    }
     
     // Frame select menu
-    const frameOptions = availableFrames.slice(0, 25).map(f => {
-        const label = f.replace('.png', '').replace('frame_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        return {
-            label: truncate(label, 100),
-            description: truncate('Frame preset', 100),
-            value: truncate(f, 100),
-            default: f === customization.frame?.value
-        };
-    });
+    const frameOptions = availableFrames.slice(0, 25)
+        .map(f => {
+            if (!f || typeof f !== 'string' || f.length === 0) return null;
+            const label = f.replace('.png', '').replace('frame_', '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            const opt = {
+                label: truncate(label, 100),
+                description: truncate('Frame preset', 100),
+                value: truncate(f, 100),
+                default: f === customization.frame?.value
+            };
+            return opt;
+        })
+        .filter(opt => opt && validateOption(opt)); // Filter out invalid options
     
     const frameSelect = new StringSelectMenuBuilder()
         .setCustomId('profile_customize_frame')
-        .setPlaceholder(truncate('Pilih Frame', 150))
-        .addOptions(frameOptions);
+        .setPlaceholder(truncate('Pilih Frame', 150));
+    
+    if (frameOptions.length > 0) {
+        frameSelect.addOptions(frameOptions);
+    } else {
+        // Fallback option
+        frameSelect.addOptions([{
+            label: 'Basic Frame',
+            description: 'Default frame',
+            value: 'frame_basic.png',
+            default: true
+        }]);
+    }
     
     // Badge selection (only unlocked achievements)
     const unlockedAchievements = achievementsData.unlocked || [];
     const maxBadgeSelect = Math.min(25, unlockedAchievements.length);
-    const badgeOptions = unlockedAchievements.slice(0, maxBadgeSelect).map(a => {
-        const opt = {
-            label: truncate(a.name || 'Achievement', 100),
-            description: truncate(a.description || '', 100),
-            value: truncate(a.id || '', 100),
-            default: customization.badges && customization.badges.enabled && customization.badges.enabled.includes(a.id)
-        };
-        if (a.emoji) {
-            opt.emoji = a.emoji;
-        }
-        return opt;
-    });
+    const badgeOptions = unlockedAchievements.slice(0, maxBadgeSelect)
+        .filter(a => a && a.id && a.name) // Filter valid achievements
+        .map(a => {
+            const opt = {
+                label: truncate(a.name || 'Achievement', 100),
+                description: truncate(a.description || '', 100),
+                value: truncate(a.id || '', 100),
+                default: false
+            };
+            // Only set default if it matches
+            if (customization.badges && customization.badges.enabled && customization.badges.enabled.includes(a.id)) {
+                opt.default = true;
+            }
+            // Add emoji if available
+            if (a.emoji && typeof a.emoji === 'string') {
+                opt.emoji = a.emoji;
+            }
+            return opt;
+        })
+        .filter(opt => opt && validateOption(opt)); // Filter out invalid options
     
     const maxBadgeValues = Math.min(customization.badges.maxDisplay || 5, unlockedAchievements.length, 25);
     const badgeSelect = new StringSelectMenuBuilder()
@@ -244,7 +295,7 @@ async function handleCustomize(interaction) {
     
     // Only add options if there are any
     if (badgeOptions.length > 0) {
-        badgeSelect.setMaxValues(Math.max(1, maxBadgeValues));
+        badgeSelect.setMaxValues(Math.max(1, Math.min(maxBadgeValues, badgeOptions.length)));
         badgeSelect.addOptions(badgeOptions);
     } else {
         // Add placeholder option if no achievements
@@ -276,25 +327,6 @@ async function handleCustomize(interaction) {
         .setStyle(ButtonStyle.Danger)
         .setEmoji('🔄');
     
-    // Ensure we have at least one option in each select menu
-    if (templateOptions.length === 0) {
-        templateSelect.addOptions([{
-            label: 'Classic',
-            description: 'Default template',
-            value: 'classic',
-            default: true
-        }]);
-    }
-    
-    if (frameOptions.length === 0) {
-        frameSelect.addOptions([{
-            label: 'Basic Frame',
-            description: 'Default frame',
-            value: 'frame_basic.png',
-            default: true
-        }]);
-    }
-    
     const actionRow1 = new ActionRowBuilder().addComponents(templateSelect);
     const actionRow2 = new ActionRowBuilder().addComponents(frameSelect);
     const actionRow3 = new ActionRowBuilder().addComponents(badgeSelect);
@@ -303,14 +335,14 @@ async function handleCustomize(interaction) {
     await interaction.reply({
         embeds: [embed],
         components: [actionRow1, actionRow2, actionRow3, actionRow4],
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
     });
     } catch (error) {
         console.error('Error in handleCustomize:', error);
         if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
                 content: '❌ Terjadi error saat membuka customization menu. Coba lagi nanti.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             }).catch(() => {});
         } else {
             await interaction.editReply({
@@ -409,7 +441,7 @@ async function handleCompare(interaction) {
 }
 
 async function handleReset(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     
     const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     const result = resetCustomization(interaction.guild.id, interaction.user.id, member);
@@ -422,7 +454,7 @@ async function handleReset(interaction) {
 }
 
 async function handleInfo(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     
     const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
@@ -452,14 +484,14 @@ async function handleBio(interaction) {
         if (!text) {
             return interaction.reply({
                 content: '❌ Mohon isi bio text!',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
         if (text.length > 200) {
             return interaction.reply({
                 content: '❌ Bio terlalu panjang! Maksimal 200 karakter.',
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -471,7 +503,7 @@ async function handleBio(interaction) {
         
         await interaction.reply({
             content: `✅ Bio berhasil di-set!\n"${text}"`,
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     } else if (action === 'view') {
         const target = interaction.options.getUser('target') || interaction.user;
@@ -481,7 +513,7 @@ async function handleBio(interaction) {
         if (!customization.bio) {
             return interaction.reply({
                 content: `${target.id === interaction.user.id ? 'Kamu' : target.username} belum punya bio.`,
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
         
@@ -491,7 +523,7 @@ async function handleBio(interaction) {
             .setDescription(`"${customization.bio}"`)
             .setThumbnail(target.displayAvatarURL());
         
-        await interaction.reply({ embeds: [embed], ephemeral: true });
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     } else if (action === 'clear') {
         const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
         const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
@@ -501,7 +533,7 @@ async function handleBio(interaction) {
         
         await interaction.reply({
             content: '✅ Bio berhasil di-clear!',
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 }
