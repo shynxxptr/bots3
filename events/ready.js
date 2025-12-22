@@ -43,6 +43,22 @@ module.exports = {
         setInterval(() => tickVoicePairStreak(client).catch(() => { }), vpSettings.tickSeconds * 1000);
 
         // ===========================
+        // SYNC ACHIEVEMENTS FROM EXISTING DATA
+        // ===========================
+        setTimeout(() => {
+            console.log('🔄 Starting achievement sync from existing data...');
+            for (const guild of client.guilds.cache.values()) {
+                try {
+                    const { syncAllUsersAchievements } = require('../utils/achievements');
+                    const result = syncAllUsersAchievements(guild.id);
+                    console.log(`✅ Achievement sync completed for ${guild.name}: ${result.synced}/${result.total} users`);
+                } catch (error) {
+                    console.error(`Error syncing achievements for guild ${guild.name}:`, error);
+                }
+            }
+        }, 15 * 1000); // Run 15 seconds after ready
+
+        // ===========================
         // TICKET AUTO-CLOSE (24 HOURS)
         // ===========================
         const { listOpenTickets } = require('../utils/ticketStore');

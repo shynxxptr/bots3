@@ -17,26 +17,28 @@ async function generateProfileCard(user, member, customization, rankData, achiev
     const resolution = customization.layout.resolution || '1280x720';
     const [width, height] = resolution.split('x').map(Number);
     
-    // Ensure background is synced with template - ALWAYS sync
-    if (customization.template) {
-        // Always use template for background unless it's an upload
-        if (!customization.background || customization.background.type !== 'upload') {
-            customization.background = { 
-                type: 'template', 
-                value: customization.template 
-            };
-        }
-    } else if (!customization.background) {
-        // Default to classic if no template
-        customization.template = 'classic';
+    // CRITICAL: Ensure template is the source of truth
+    // If template exists, ALWAYS use it for background (unless it's an upload)
+    const templateName = customization.template || 'classic';
+    
+    // Force sync: template always overrides background (unless upload)
+    if (customization.background && customization.background.type === 'upload') {
+        // Keep upload if exists
+    } else {
+        // ALWAYS use template for background
+        customization.template = templateName;
         customization.background = { 
             type: 'template', 
-            value: 'classic' 
+            value: templateName 
         };
     }
     
-    // Debug log
-    console.log(`🎨 Generating profile card with template: ${customization.template}, background: ${JSON.stringify(customization.background)}`);
+    // Debug log with detailed info
+    console.log(`🎨 Generating profile card:`);
+    console.log(`   Template: ${customization.template}`);
+    console.log(`   Background type: ${customization.background?.type}`);
+    console.log(`   Background value: ${customization.background?.value}`);
+    console.log(`   Resolution: ${width}x${height}`);
     
     const canvas = Canvas.createCanvas(width, height);
     const ctx = canvas.getContext('2d');
@@ -511,9 +513,25 @@ function adjustColor(color, amount) {
  */
 async function loadBackground(ctx, customization, width, height) {
     try {
-        // ALWAYS use template field - it's the source of truth
-        const templateName = customization.template || 'classic';
-        console.log(`🎨 Loading background for template: ${templateName}, resolution: ${width}x${height}`);
+        // CRITICAL: Use template field as PRIMARY source of truth
+        // If template exists, use it. Otherwise use background.value, then default to 'classic'
+        let templateName = customization.template;
+        
+        // If no template, try to get from background.value
+        if (!templateName && customization.background && customization.background.type === 'template') {
+            templateName = customization.background.value;
+        }
+        
+        // Final fallback
+        if (!templateName) {
+            templateName = 'classic';
+        }
+        
+        console.log(`🎨 Loading background:`);
+        console.log(`   Template from customization.template: ${customization.template}`);
+        console.log(`   Template from background.value: ${customization.background?.value}`);
+        console.log(`   Final template name: ${templateName}`);
+        console.log(`   Resolution: ${width}x${height}`);
         
         // If background is upload, use that instead (skip template)
         if (customization.background && customization.background.type === 'upload') {
@@ -534,34 +552,45 @@ async function loadBackground(ctx, customization, width, height) {
         // Use template background - SIMPLE AND DIRECT
         const templateDir = path.join(__dirname, '../assets/profiles/templates', templateName);
         console.log(`📁 Template directory: ${templateDir}`);
+        console.log(`📁 Directory exists: ${fs.existsSync(templateDir)}`);
+        
+        let bgImage = null;
         
         // Try resolution-specific file first
         const resSpecificPath = path.join(templateDir, `background_${width}x${height}.png`);
-        let bgImage = null;
+        const resSpecificExists = fs.existsSync(resSpecificPath);
+        console.log(`🔍 Resolution-specific path: ${resSpecificPath}`);
+        console.log(`🔍 Resolution-specific exists: ${resSpecificExists}`);
         
-        console.log(`🔍 Checking resolution-specific: ${resSpecificPath}, exists: ${fs.existsSync(resSpecificPath)}`);
-        if (fs.existsSync(resSpecificPath)) {
+        if (resSpecificExists) {
             try {
                 bgImage = await Canvas.loadImage(resSpecificPath);
                 console.log(`✅ Loaded resolution-specific background: ${templateName} (${width}x${height})`);
             } catch (err) {
                 console.error('❌ Error loading resolution-specific background:', err);
+                console.error('   Error message:', err.message);
             }
         }
         
         // Fallback to default background.png
         if (!bgImage) {
             const defaultPath = path.join(templateDir, 'background.png');
-            console.log(`🔍 Checking default: ${defaultPath}, exists: ${fs.existsSync(defaultPath)}`);
-            if (fs.existsSync(defaultPath)) {
+            const defaultExists = fs.existsSync(defaultPath);
+            console.log(`🔍 Default path: ${defaultPath}`);
+            console.log(`🔍 Default exists: ${defaultExists}`);
+            
+            if (defaultExists) {
                 try {
                     bgImage = await Canvas.loadImage(defaultPath);
                     console.log(`✅ Loaded default background: ${templateName}`);
                 } catch (err) {
                     console.error('❌ Error loading default background:', err);
+                    console.error('   Error message:', err.message);
                 }
             } else {
-                console.warn(`⚠️ Background not found for template: ${templateName} at ${defaultPath}`);
+                console.warn(`⚠️ Background not found for template: ${templateName}`);
+                console.warn(`   Tried: ${resSpecificPath}`);
+                console.warn(`   Tried: ${defaultPath}`);
             }
         }
         
@@ -569,26 +598,87 @@ async function loadBackground(ctx, customization, width, height) {
             ctx.drawImage(bgImage, 0, 0, width, height);
             console.log(`✅ Background drawn successfully for template: ${templateName}`);
         } else {
-            // Fallback: Enhanced default gradient background
-            console.warn(`⚠️ Using fallback gradient for template: ${templateName}`);
-            const gradient = ctx.createLinearGradient(0, 0, width, height);
-            gradient.addColorStop(0, '#1a1b2e');
-            gradient.addColorStop(0.3, '#16213e');
-            gradient.addColorStop(0.6, '#0f3460');
-            gradient.addColorStop(1, '#533483');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, width, height);
-            
-            // Add radial gradient overlay
-            const radialGrad = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 1.5);
-            radialGrad.addColorStop(0, 'rgba(88, 101, 242, 0.2)');
-            radialGrad.addColorStop(1, 'transparent');
-            ctx.fillStyle = radialGrad;
-            ctx.fillRect(0, 0, width, height);
+            // Fallback: Generate background dynamically based on template
+            console.warn(`⚠️ Background file not found for template: ${templateName}, generating dynamically...`);
+            generateTemplateBackground(ctx, templateName, width, height);
         }
     } catch (err) {
         console.error('Error loading background:', err);
-        // Fallback to gradient
+        // Fallback: Generate background dynamically
+        generateTemplateBackground(ctx, customization.template || 'classic', width, height);
+    }
+}
+
+/**
+ * Generate template background dynamically if file not found
+ */
+function generateTemplateBackground(ctx, templateName, width, height) {
+    try {
+        // Template-specific color schemes
+        const templates = {
+            classic: {
+                gradient: ['#1a1b2e', '#16213e', '#0f3460', '#533483'],
+                radial: 'rgba(88, 101, 242, 0.2)'
+            },
+            dark: {
+                gradient: ['#0a0a0a', '#1a1a1a', '#2a2a2a', '#000000'],
+                radial: 'rgba(100, 100, 100, 0.15)'
+            },
+            light: {
+                gradient: ['#f5f5f5', '#e8e8e8', '#d0d0d0', '#b8b8b8'],
+                radial: 'rgba(200, 200, 200, 0.2)'
+            },
+            colorful: {
+                gradient: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24'],
+                radial: 'rgba(255, 107, 107, 0.2)'
+            },
+            neon: {
+                gradient: ['#0a0a0a', '#1a0033', '#330066', '#6600cc'],
+                radial: 'rgba(255, 0, 255, 0.3)'
+            },
+            gaming: {
+                gradient: ['#1a1a2e', '#16213e', '#0f3460', '#533483'],
+                radial: 'rgba(0, 255, 0, 0.2)'
+            },
+            epic: {
+                gradient: ['#1a0033', '#330066', '#6600cc', '#9900ff'],
+                radial: 'rgba(255, 215, 0, 0.2)'
+            },
+            minimalist: {
+                gradient: ['#ffffff', '#f0f0f0', '#e0e0e0', '#d0d0d0'],
+                radial: 'rgba(0, 0, 0, 0.05)'
+            },
+            romantic: {
+                gradient: ['#ff9a9e', '#fecfef', '#fecfef', '#ffc3a0'],
+                radial: 'rgba(255, 182, 193, 0.3)'
+            },
+            school: {
+                gradient: ['#2c3e50', '#34495e', '#3498db', '#2980b9'],
+                radial: 'rgba(52, 152, 219, 0.2)'
+            }
+        };
+        
+        const template = templates[templateName] || templates.classic;
+        
+        // Create gradient
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        template.gradient.forEach((color, index) => {
+            gradient.addColorStop(index / (template.gradient.length - 1), color);
+        });
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+        
+        // Add radial gradient overlay
+        const radialGrad = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) / 1.5);
+        radialGrad.addColorStop(0, template.radial);
+        radialGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = radialGrad;
+        ctx.fillRect(0, 0, width, height);
+        
+        console.log(`✅ Generated dynamic background for template: ${templateName}`);
+    } catch (err) {
+        console.error('Error generating template background:', err);
+        // Ultimate fallback: simple gradient
         const gradient = ctx.createLinearGradient(0, 0, width, height);
         gradient.addColorStop(0, '#1a1b2e');
         gradient.addColorStop(1, '#533483');

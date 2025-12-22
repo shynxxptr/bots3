@@ -408,17 +408,33 @@ module.exports = {
                 const { generateProfileCard } = require('../utils/profileCardRenderer');
                 
                 const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-                // Force reload to get latest customization
+                
+                // CRITICAL: Force reload to get latest customization from file
                 const customization = getCustomization(interaction.guild.id, interaction.user.id, member, true);
                 
-                // Ensure template and background are synced
-                if (customization.template && (!customization.background || customization.background.type !== 'upload')) {
-                    if (!customization.background) {
-                        customization.background = { type: 'template', value: customization.template };
-                    } else if (customization.background.value !== customization.template) {
-                        customization.background.type = 'template';
-                        customization.background.value = customization.template;
+                console.log(`🔍 Preview - Loaded customization:`);
+                console.log(`   Template: ${customization.template}`);
+                console.log(`   Background type: ${customization.background?.type}`);
+                console.log(`   Background value: ${customization.background?.value}`);
+                
+                // CRITICAL: Force sync template and background
+                if (customization.template) {
+                    // Template is the source of truth - always use it
+                    if (!customization.background || customization.background.type !== 'upload') {
+                        customization.background = { 
+                            type: 'template', 
+                            value: customization.template 
+                        };
+                        console.log(`   ✅ Synced background to match template: ${customization.template}`);
                     }
+                } else if (!customization.background) {
+                    // Default to classic if no template
+                    customization.template = 'classic';
+                    customization.background = { 
+                        type: 'template', 
+                        value: 'classic' 
+                    };
+                    console.log(`   ✅ Set default template: classic`);
                 }
                 
                 const rankData = getUserRank(interaction.user.id, interaction.guild.id);
@@ -528,16 +544,21 @@ module.exports = {
                         }).catch(() => {});
                     }
                     
-                    // Update template
+                    // CRITICAL: Update template FIRST, then background
                     customization.template = selectedTemplate;
                     
-                    // ALWAYS update background to match template
-                    customization.background = { 
-                        type: 'template', 
-                        value: selectedTemplate 
-                    };
+                    // ALWAYS update background to match template (unless it's an upload)
+                    if (!customization.background || customization.background.type !== 'upload') {
+                        customization.background = { 
+                            type: 'template', 
+                            value: selectedTemplate 
+                        };
+                    }
                     
-                    console.log(`💾 Saving customization - Template: ${selectedTemplate}, Background: ${JSON.stringify(customization.background)}`);
+                    console.log(`💾 Saving customization:`);
+                    console.log(`   Template: ${selectedTemplate}`);
+                    console.log(`   Background type: ${customization.background.type}`);
+                    console.log(`   Background value: ${customization.background.value}`);
                     
                     const saveResult = saveCustomization(interaction.guild.id, interaction.user.id, customization);
                     
@@ -548,7 +569,10 @@ module.exports = {
                         }).catch(() => {});
                     }
                     
-                    console.log(`✅ Customization saved - Template: ${saveResult.customization.template}, Background: ${JSON.stringify(saveResult.customization.background)}`);
+                    console.log(`✅ Customization saved:`);
+                    console.log(`   Saved template: ${saveResult.customization.template}`);
+                    console.log(`   Saved background type: ${saveResult.customization.background?.type}`);
+                    console.log(`   Saved background value: ${saveResult.customization.background?.value}`);
                     
                     await interaction.followUp({
                         content: `✅ Template berhasil diubah ke **${selectedTemplate}**!`,

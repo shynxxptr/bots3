@@ -425,6 +425,146 @@ function syncAchievementsFromExistingData(userId, guildId) {
 }
 
 /**
+ * Sync achievements for all users in a guild from existing data
+ * This will check all users who have data in any of the stat files
+ * @param {string} guildId - Guild ID
+ * @returns {object} { synced: number, total: number }
+ */
+function syncAllUsersAchievements(guildId) {
+    const allUserIds = new Set();
+    
+    // Helper function to load JSON file
+    const loadJsonFile = (filePath, defaultValue = {}) => {
+        try {
+            if (fs.existsSync(filePath)) {
+                return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            }
+        } catch (err) {
+            console.error(`Error loading ${filePath}:`, err);
+        }
+        return defaultValue;
+    };
+    
+    // Collect all user IDs from various data files
+    try {
+        // Voice time
+        const voiceTimePath = path.join(__dirname, '../data/voice_time.json');
+        const voiceTimeStore = loadJsonFile(voiceTimePath, { users: {} });
+        if (voiceTimeStore && voiceTimeStore.users) {
+            for (const key in voiceTimeStore.users) {
+                if (key.startsWith(`${guildId}-`)) {
+                    const userId = key.split('-')[1];
+                    if (userId) allUserIds.add(userId);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error loading voice time for sync:', err);
+    }
+    
+    try {
+        // Reputation
+        const repPath = path.join(__dirname, '../data/reputation.json');
+        const repStore = loadJsonFile(repPath, { users: {} });
+        if (repStore && repStore.users) {
+            for (const key in repStore.users) {
+                if (key.startsWith(`${guildId}-`)) {
+                    const userId = key.split('-')[1];
+                    if (userId) allUserIds.add(userId);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error loading reputation for sync:', err);
+    }
+    
+    try {
+        // Message count
+        const msgPath = path.join(__dirname, '../data/message_count.json');
+        const msgStore = loadJsonFile(msgPath, { users: {} });
+        if (msgStore && msgStore.users) {
+            for (const key in msgStore.users) {
+                if (key.startsWith(`${guildId}-`)) {
+                    const userId = key.split('-')[1];
+                    if (userId) allUserIds.add(userId);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error loading message count for sync:', err);
+    }
+    
+    try {
+        // Quotes
+        const quotePath = path.join(__dirname, '../data/quotes.json');
+        const quoteStore = loadJsonFile(quotePath, { authors: {} });
+        if (quoteStore && quoteStore.authors) {
+            for (const key in quoteStore.authors) {
+                if (key.startsWith(`${guildId}-`)) {
+                    const userId = key.split('-')[1];
+                    if (userId) allUserIds.add(userId);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error loading quotes for sync:', err);
+    }
+    
+    try {
+        // Levels (for streak)
+        const { loadLevels } = require('./leveling');
+        const levelsStore = loadLevels();
+        for (const key in levelsStore) {
+            if (key.startsWith(`${guildId}-`)) {
+                const userId = key.split('-')[1];
+                if (userId) allUserIds.add(userId);
+            }
+        }
+    } catch (err) {
+        console.error('Error loading levels for sync:', err);
+    }
+    
+    try {
+        // Voice pair streak
+        const vpPath = path.join(__dirname, '../data/voice_pair_streak.json');
+        const vpStore = loadJsonFile(vpPath, { pairs: {} });
+        if (vpStore && vpStore.pairs) {
+            for (const pairKey in vpStore.pairs) {
+                const pair = vpStore.pairs[pairKey];
+                if (pair && pair.guildId === guildId) {
+                    if (pair.a) allUserIds.add(pair.a);
+                    if (pair.b) allUserIds.add(pair.b);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error loading voice pair streak for sync:', err);
+    }
+    
+    // Sync achievements for all users
+    let syncedCount = 0;
+    const totalUsers = allUserIds.size;
+    
+    console.log(`🔄 Found ${totalUsers} users with existing data in guild ${guildId}, syncing achievements...`);
+    
+    for (const userId of allUserIds) {
+        try {
+            const synced = syncAchievementsFromExistingData(userId, guildId);
+            if (synced.length > 0) {
+                syncedCount++;
+                console.log(`  ✅ User ${userId}: unlocked ${synced.length} achievements`);
+            }
+        } catch (err) {
+            console.error(`  ❌ Error syncing achievements for user ${userId}:`, err);
+        }
+    }
+    
+    console.log(`✅ Achievement sync completed for guild ${guildId}: ${syncedCount}/${totalUsers} users got achievements unlocked`);
+    
+    return { synced: syncedCount, total: totalUsers };
+}
+
+/**
  * Get all achievement definitions
  * @returns {object} All achievement definitions
  */
@@ -588,6 +728,7 @@ module.exports = {
     unlockAchievement,
     getStoredUnlockedAchievements,
     syncAchievementsFromExistingData,
+    syncAllUsersAchievements,
     ACHIEVEMENTS_PATH,
 };
 
