@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
-const { checkAchievement, getAchievement, getUnlockedAchievements } = require('./achievements');
+const { checkAchievement, getAchievement, getUnlockedAchievements, unlockAchievement, syncAchievementsFromExistingData } = require('./achievements');
 
 /**
  * Check for newly unlocked achievements and send notifications
@@ -11,7 +11,11 @@ const { checkAchievement, getAchievement, getUnlockedAchievements } = require('.
  */
 async function checkAndNotifyAchievements(client, guildId, userId, channelId = null) {
     try {
-        // Get current unlocked achievements
+        // First, sync achievements from existing data (only if user has no achievements stored yet)
+        // This ensures users with existing data get their achievements auto-unlocked
+        const syncedAchievements = syncAchievementsFromExistingData(userId, guildId);
+        
+        // Get currently stored unlocked achievements (from file)
         const currentUnlocked = getUnlockedAchievements(userId, guildId);
         
         // Get user and member
@@ -31,20 +35,30 @@ async function checkAndNotifyAchievements(client, guildId, userId, channelId = n
             const achievement = allAchievements[achievementId];
             const check = checkAchievement(userId, guildId, achievementId);
             
-            // If just unlocked (wasn't in current unlocked list)
+            // If requirement met and not yet stored as unlocked
             if (check.unlocked && !currentUnlocked.includes(achievementId)) {
-                newlyUnlocked.push(achievementId);
+                // Unlock the achievement (save to file)
+                const wasNewlyUnlocked = unlockAchievement(userId, guildId, achievementId);
+                if (wasNewlyUnlocked) {
+                    newlyUnlocked.push(achievementId);
+                    console.log(`🎉 New achievement unlocked: ${achievementId} for user ${userId}`);
+                }
             }
         }
         
-        // Send notifications for newly unlocked achievements
+        // Combine synced and newly unlocked achievements
+        const allNewlyUnlocked = [...syncedAchievements, ...newlyUnlocked];
+        
+        // Send notifications for newly unlocked achievements (but skip notification for synced ones to avoid spam)
+        // Only notify for achievements unlocked in this session (not synced from existing data)
         if (newlyUnlocked.length > 0) {
             await sendAchievementNotifications(client, guildId, userId, newlyUnlocked, channelId);
         }
         
-        return newlyUnlocked;
+        return allNewlyUnlocked;
     } catch (error) {
         console.error('Error checking achievements:', error);
+        console.error('Stack:', error.stack);
         return [];
     }
 }
@@ -171,4 +185,5 @@ module.exports = {
     sendAchievementNotifications,
     checkAchievementsOnStatUpdate,
 };
+
 

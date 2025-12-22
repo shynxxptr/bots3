@@ -372,6 +372,110 @@ module.exports = {
                 return;
             }
 
+            // ===========================
+            // PROFILE CUSTOMIZATION BUTTONS (CHECK BEFORE MENFESS)
+            // ===========================
+            if (interaction.customId === 'profile_customize_bio') {
+                const modal = new ModalBuilder()
+                    .setCustomId('profile_customize_bio_modal')
+                    .setTitle('Set Bio');
+                
+                const bioInput = new TextInputBuilder()
+                    .setCustomId('bio_text')
+                    .setLabel('Bio (Max 200 karakter)')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(true)
+                    .setMaxLength(200)
+                    .setPlaceholder('Masukkan bio kamu...');
+                
+                modal.addComponents(new ActionRowBuilder().addComponents(bioInput));
+                await interaction.showModal(modal);
+                return;
+            }
+            
+            if (interaction.customId === 'profile_customize_preview') {
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+                
+                const { getCustomization, getUserRole } = require('../utils/profileCustomization');
+                const { getUserRank } = require('../utils/leveling');
+                const { getUserAchievements, getAllAchievements } = require('../utils/achievements');
+                const { getVoiceTime } = require('../utils/voiceTime');
+                const { getReputation } = require('../utils/reputation');
+                const { getMessageCount } = require('../utils/messageCount');
+                const { getStreak } = require('../utils/leveling');
+                const { getTopPairsForUser } = require('../utils/voicePairStreak');
+                const { getQuotesByAuthor } = require('../utils/quote');
+                const { generateProfileCard } = require('../utils/profileCardRenderer');
+                
+                const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                // Force reload to get latest customization
+                const customization = getCustomization(interaction.guild.id, interaction.user.id, member, true);
+                
+                // Ensure template and background are synced
+                if (customization.template && (!customization.background || customization.background.type !== 'upload')) {
+                    if (!customization.background) {
+                        customization.background = { type: 'template', value: customization.template };
+                    } else if (customization.background.value !== customization.template) {
+                        customization.background.type = 'template';
+                        customization.background.value = customization.template;
+                    }
+                }
+                
+                const rankData = getUserRank(interaction.user.id, interaction.guild.id);
+                
+                if (!rankData) {
+                    return interaction.editReply('Kamu belum memiliki XP.');
+                }
+                
+                const achievementsData = getUserAchievements(interaction.user.id, interaction.guild.id);
+                const allAchievements = getAllAchievements();
+                const enabledAchievements = achievementsData.unlocked
+                    .filter(a => a && a.id && customization.badges.enabled.includes(a.id))
+                    .map(a => allAchievements[a.id])
+                    .filter(Boolean);
+                
+                const voiceTime = getVoiceTime(interaction.guild.id, interaction.user.id);
+                const rep = getReputation(interaction.guild.id, interaction.user.id);
+                const msgCount = getMessageCount(interaction.guild.id, interaction.user.id);
+                const streak = getStreak(interaction.user.id, interaction.guild.id);
+                const topPairs = getTopPairsForUser(interaction.guild.id, interaction.user.id, 1);
+                const quotes = getQuotesByAuthor(interaction.guild.id, interaction.user.id, 1000);
+                
+                const stats = {
+                    voice_time: voiceTime ? voiceTime.totalSeconds : 0,
+                    messages: msgCount ? msgCount.messageCount : 0,
+                    prestasi: rep ? rep.totalRep : 0,
+                    quotes: quotes ? quotes.length : 0,
+                    streak: streak ? streak.streak : 0,
+                    voice_streak: topPairs.length > 0 ? (topPairs[0].streak || 0) : 0
+                };
+                
+                try {
+                    const cardBuffer = await generateProfileCard(interaction.user, member, customization, rankData, enabledAchievements, stats);
+                    const attachment = new AttachmentBuilder(cardBuffer, { name: 'profile-card.png' });
+                    await interaction.editReply({ content: '✅ Preview profile card kamu:', files: [attachment] });
+                } catch (error) {
+                    console.error('Error generating preview:', error);
+                    await interaction.editReply('❌ Terjadi error saat generate preview. Coba lagi nanti.');
+                }
+                return;
+            }
+            
+            if (interaction.customId === 'profile_customize_reset') {
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+                
+                const { resetCustomization, getUserRole } = require('../utils/profileCustomization');
+                const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+                const result = resetCustomization(interaction.guild.id, interaction.user.id, member);
+                
+                if (result.success) {
+                    await interaction.editReply('✅ Customization berhasil di-reset ke default!');
+                } else {
+                    await interaction.editReply('❌ Gagal reset customization.');
+                }
+                return;
+            }
+
             try {
                 await menfessFeature.handleButton(interaction, interaction.client);
             } catch (error) {
@@ -414,7 +518,8 @@ module.exports = {
                     }
                     
                     const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-                    const customization = getCustomization(interaction.guild.id, interaction.user.id, member);
+                    // Force reload to get latest customization
+                    const customization = getCustomization(interaction.guild.id, interaction.user.id, member, true);
                     
                     if (!customization) {
                         return interaction.followUp({
@@ -736,110 +841,8 @@ module.exports = {
 
                 return interaction.editReply(`✅ Saran kamu sudah masuk ke <#${sent.channel.id}>.`);
             }
-
-            // ===========================
-            // PROFILE CUSTOMIZATION HANDLERS
-            // ===========================
-            if (interaction.customId === 'profile_customize_bio') {
-                const modal = new ModalBuilder()
-                    .setCustomId('profile_customize_bio_modal')
-                    .setTitle('Set Bio');
-                
-                const bioInput = new TextInputBuilder()
-                    .setCustomId('bio_text')
-                    .setLabel('Bio (Max 200 karakter)')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setRequired(true)
-                    .setMaxLength(200)
-                    .setPlaceholder('Masukkan bio kamu...');
-                
-                modal.addComponents(new ActionRowBuilder().addComponents(bioInput));
-                await interaction.showModal(modal);
-                return;
-            }
             
-            if (interaction.customId === 'profile_customize_preview') {
-                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-                
-                const { getCustomization, getUserRole } = require('../utils/profileCustomization');
-                const { getUserRank } = require('../utils/leveling');
-                const { getUserAchievements, getAllAchievements } = require('../utils/achievements');
-                const { getVoiceTime } = require('../utils/voiceTime');
-                const { getReputation } = require('../utils/reputation');
-                const { getMessageCount } = require('../utils/messageCount');
-                const { getStreak } = require('../utils/leveling');
-                const { getTopPairsForUser } = require('../utils/voicePairStreak');
-                const { getQuotesByAuthor } = require('../utils/quote');
-                const { generateProfileCard } = require('../utils/profileCardRenderer');
-                
-                const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-                // Force reload to get latest customization
-                const customization = getCustomization(interaction.guild.id, interaction.user.id, member, true);
-                
-                // Ensure template and background are synced
-                if (customization.template && (!customization.background || customization.background.type !== 'upload')) {
-                    if (!customization.background) {
-                        customization.background = { type: 'template', value: customization.template };
-                    } else if (customization.background.value !== customization.template) {
-                        customization.background.type = 'template';
-                        customization.background.value = customization.template;
-                    }
-                }
-                
-                const rankData = getUserRank(interaction.user.id, interaction.guild.id);
-                
-                if (!rankData) {
-                    return interaction.editReply('Kamu belum memiliki XP.');
-                }
-                
-                const achievementsData = getUserAchievements(interaction.user.id, interaction.guild.id);
-                const allAchievements = getAllAchievements();
-                const enabledAchievements = achievementsData.unlocked
-                    .filter(a => a && a.id && customization.badges.enabled.includes(a.id))
-                    .map(a => allAchievements[a.id])
-                    .filter(Boolean);
-                
-                const voiceTime = getVoiceTime(interaction.guild.id, interaction.user.id);
-                const rep = getReputation(interaction.guild.id, interaction.user.id);
-                const msgCount = getMessageCount(interaction.guild.id, interaction.user.id);
-                const streak = getStreak(interaction.user.id, interaction.guild.id);
-                const topPairs = getTopPairsForUser(interaction.guild.id, interaction.user.id, 1);
-                const quotes = getQuotesByAuthor(interaction.guild.id, interaction.user.id, 1000);
-                
-                const stats = {
-                    voice_time: voiceTime ? voiceTime.totalSeconds : 0,
-                    messages: msgCount ? msgCount.messageCount : 0,
-                    prestasi: rep ? rep.totalRep : 0,
-                    quotes: quotes ? quotes.length : 0,
-                    streak: streak ? streak.streak : 0,
-                    voice_streak: topPairs.length > 0 ? (topPairs[0].streak || 0) : 0
-                };
-                
-                try {
-                    const cardBuffer = await generateProfileCard(interaction.user, member, customization, rankData, enabledAchievements, stats);
-                    const attachment = new AttachmentBuilder(cardBuffer, { name: 'profile-card.png' });
-                    await interaction.editReply({ content: '✅ Preview profile card kamu:', files: [attachment] });
-                } catch (error) {
-                    console.error('Error generating preview:', error);
-                    await interaction.editReply('❌ Terjadi error saat generate preview. Coba lagi nanti.');
-                }
-                return;
-            }
-            
-            if (interaction.customId === 'profile_customize_reset') {
-                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-                
-                const { resetCustomization, getUserRole } = require('../utils/profileCustomization');
-                const member = interaction.guild.members.cache.get(interaction.user.id) || await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
-                const result = resetCustomization(interaction.guild.id, interaction.user.id, member);
-                
-                if (result.success) {
-                    await interaction.editReply('✅ Customization berhasil di-reset ke default!');
-                } else {
-                    await interaction.editReply('❌ Gagal reset customization.');
-                }
-                return;
-            }
+            // Note: Profile customization button handlers are now in the button block above (line ~374)
             
             try {
                 await menfessFeature.handleModalSubmit(interaction, interaction.client);

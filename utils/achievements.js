@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ACHIEVEMENTS_PATH = path.join(__dirname, '../data/achievements.json');
+const USER_ACHIEVEMENTS_PATH = path.join(__dirname, '../data/user_achievements.json');
 
 // Achievement definitions
 const ACHIEVEMENT_DEFINITIONS = {
@@ -303,6 +304,127 @@ function saveAchievements(achievements) {
 }
 
 /**
+ * Load user achievements store
+ * Structure: { "guildId-userId": ["achievement1", "achievement2", ...] }
+ */
+function loadUserAchievements() {
+    try {
+        if (!fs.existsSync(USER_ACHIEVEMENTS_PATH)) {
+            fs.writeFileSync(USER_ACHIEVEMENTS_PATH, JSON.stringify({}, null, 4));
+            return {};
+        }
+        return JSON.parse(fs.readFileSync(USER_ACHIEVEMENTS_PATH, 'utf8'));
+    } catch (err) {
+        console.error('Failed to load user achievements:', err);
+        return {};
+    }
+}
+
+/**
+ * Save user achievements store
+ */
+function saveUserAchievements(store) {
+    try {
+        fs.writeFileSync(USER_ACHIEVEMENTS_PATH, JSON.stringify(store, null, 4));
+    } catch (err) {
+        console.error('Failed to save user achievements:', err);
+    }
+}
+
+/**
+ * Get user key for achievements store
+ */
+function getUserAchievementKey(guildId, userId) {
+    return `${guildId}-${userId}`;
+}
+
+/**
+ * Get unlocked achievements for a user (from store)
+ * @param {string} userId - User ID
+ * @param {string} guildId - Guild ID
+ * @returns {array} Array of unlocked achievement IDs
+ */
+function getStoredUnlockedAchievements(userId, guildId) {
+    const store = loadUserAchievements();
+    const key = getUserAchievementKey(guildId, userId);
+    return store[key] || [];
+}
+
+/**
+ * Unlock an achievement for a user
+ * @param {string} userId - User ID
+ * @param {string} guildId - Guild ID
+ * @param {string} achievementId - Achievement ID
+ * @returns {boolean} True if newly unlocked, false if already unlocked
+ */
+function unlockAchievement(userId, guildId, achievementId) {
+    const store = loadUserAchievements();
+    const key = getUserAchievementKey(guildId, userId);
+    
+    if (!store[key]) {
+        store[key] = [];
+    }
+    
+    // Check if already unlocked
+    if (store[key].includes(achievementId)) {
+        return false;
+    }
+    
+    // Add to unlocked list
+    store[key].push(achievementId);
+    saveUserAchievements(store);
+    
+    console.log(`✅ Achievement unlocked: ${achievementId} for user ${userId} in guild ${guildId}`);
+    return true;
+}
+
+/**
+ * Sync achievements from existing data files
+ * This will auto-unlock achievements that are already met based on existing data
+ * @param {string} userId - User ID
+ * @param {string} guildId - Guild ID
+ * @returns {array} Array of newly unlocked achievement IDs
+ */
+function syncAchievementsFromExistingData(userId, guildId) {
+    const store = loadUserAchievements();
+    const key = getUserAchievementKey(guildId, userId);
+    
+    // If user already has achievements stored, skip sync (already synced before)
+    if (store[key] && store[key].length > 0) {
+        return [];
+    }
+    
+    // Initialize if not exists
+    if (!store[key]) {
+        store[key] = [];
+    }
+    
+    const allAchievements = loadAchievements();
+    const newlyUnlocked = [];
+    
+    // Check all achievements
+    for (const achievementId in allAchievements) {
+        const achievement = allAchievements[achievementId];
+        const check = checkAchievement(userId, guildId, achievementId);
+        
+        // If requirement already met, auto-unlock
+        if (check.unlocked && !store[key].includes(achievementId)) {
+            store[key].push(achievementId);
+            newlyUnlocked.push(achievementId);
+            console.log(`🔄 Auto-unlocked achievement from existing data: ${achievementId} for user ${userId} in guild ${guildId}`);
+        }
+    }
+    
+    // Save if any achievements were unlocked
+    if (newlyUnlocked.length > 0) {
+        saveUserAchievements(store);
+        console.log(`✅ Synced ${newlyUnlocked.length} achievements from existing data for user ${userId} in guild ${guildId}`);
+    }
+    
+    return newlyUnlocked;
+}
+
+/**
  * Get all achievement definitions
  * @returns {object} All achievement definitions
  */
@@ -402,17 +524,8 @@ function checkAchievement(userId, guildId, achievementId) {
  * @returns {array} Array of unlocked achievement IDs
  */
 function getUnlockedAchievements(userId, guildId) {
-    const achievements = loadAchievements();
-    const unlocked = [];
-    
-    for (const achievementId in achievements) {
-        const check = checkAchievement(userId, guildId, achievementId);
-        if (check.unlocked) {
-            unlocked.push(achievementId);
-        }
-    }
-    
-    return unlocked;
+    // Return stored unlocked achievements (from file)
+    return getStoredUnlockedAchievements(userId, guildId);
 }
 
 /**
@@ -423,6 +536,7 @@ function getUnlockedAchievements(userId, guildId) {
  */
 function getUserAchievements(userId, guildId) {
     const achievements = loadAchievements();
+    const storedUnlocked = getStoredUnlockedAchievements(userId, guildId);
     const unlocked = [];
     const locked = [];
     const byCategory = {};
@@ -431,15 +545,19 @@ function getUserAchievements(userId, guildId) {
         const achievement = achievements[achievementId];
         const check = checkAchievement(userId, guildId, achievementId);
         
+        // Check if stored as unlocked (even if requirement not met anymore, still show as unlocked)
+        const isStoredUnlocked = storedUnlocked.includes(achievementId);
+        const isUnlocked = isStoredUnlocked || check.unlocked;
+        
         const achievementData = {
             ...achievement,
-            unlocked: check.unlocked,
+            unlocked: isUnlocked,
             progress: check.progress,
             total: check.total,
             currentValue: check.currentValue,
         };
         
-        if (check.unlocked) {
+        if (isUnlocked) {
             unlocked.push(achievementData);
         } else {
             locked.push(achievementData);
@@ -450,7 +568,7 @@ function getUserAchievements(userId, guildId) {
             byCategory[achievement.category] = { unlocked: [], locked: [] };
         }
         
-        if (check.unlocked) {
+        if (isUnlocked) {
             byCategory[achievement.category].unlocked.push(achievementData);
         } else {
             byCategory[achievement.category].locked.push(achievementData);
@@ -467,6 +585,10 @@ module.exports = {
     checkAchievement,
     getUnlockedAchievements,
     getUserAchievements,
+    unlockAchievement,
+    getStoredUnlockedAchievements,
+    syncAchievementsFromExistingData,
     ACHIEVEMENTS_PATH,
 };
+
 
