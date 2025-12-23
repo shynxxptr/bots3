@@ -135,42 +135,58 @@ function markValidToday(store, pair, todayKey, now) {
         
         // If lastValidDate is today, this is a duplicate call in the same day - don't increment
         if (pair.lastValidDate === todayKey) {
-            // Already validated today, don't increment streak
-            return { becameActive: false, streak: pair.streak || 0 };
+            // Already validated today, don't increment streak but return current streak
+            return { becameActive: false, streak: pair.streak || 0, alreadyValidated: true };
         }
+        
+        // Track if streak will increment
+        let streakIncremented = false;
         
         // If lastValidDate is yesterday, this is a consecutive day - increment streak
         if (pair.lastValidDate === yesterdayKey) {
             // Consecutive day - increment streak
-            pair.streak = (pair.streak || 0) + 1;
-        } else {
-            // First valid day or gap (but not broken) - set to 1 or keep current
-            // This shouldn't normally happen for active pairs, but handle it
+            const oldStreak = pair.streak || 0;
+            pair.streak = oldStreak + 1;
+            streakIncremented = true;
+        } else if (!pair.lastValidDate) {
+            // No lastValidDate - this shouldn't happen for active pairs, but handle it
+            // Set streak to 1 if it's 0, otherwise keep it
             if (!pair.streak || pair.streak === 0) {
                 pair.streak = 1;
+                streakIncremented = true;
+            }
+        } else {
+            // Gap detected but not broken (shouldn't happen for active, but handle)
+            // Keep current streak or set to 1 if 0
+            if (!pair.streak || pair.streak === 0) {
+                pair.streak = 1;
+                streakIncremented = true;
             }
         }
         
         // Update lastValidDate to today
         pair.lastValidDate = todayKey;
-        return { becameActive: false, streak: pair.streak };
+        return { becameActive: false, streak: pair.streak, streakIncremented };
     }
 
     // candidate
     // If lastValidDate is today, this is a duplicate call in the same day - don't change candidateConsecutive
     if (pair.lastValidDate === todayKey) {
         // Already validated today, keep current candidateConsecutive
-        return { becameActive: false, streak: 0 };
+        return { becameActive: false, streak: 0, alreadyValidated: true };
     }
+    
+    // Track old candidateConsecutive to detect if it will change
+    const oldCandidateConsecutive = pair.candidateConsecutive || 0;
     
     if (pair.lastValidDate === yesterdayKey) {
         // Consecutive day - increment candidate
-        pair.candidateConsecutive = (pair.candidateConsecutive || 0) + 1;
+        pair.candidateConsecutive = oldCandidateConsecutive + 1;
     } else if (pair.lastValidDate && pair.lastValidDate !== todayKey) {
         // Gap detected (bolong) - reset candidate consecutive
         pair.candidateConsecutive = 1;
     } else {
-        // First valid day
+        // First valid day or no lastValidDate
         pair.candidateConsecutive = 1;
     }
 
@@ -245,14 +261,19 @@ async function tickVoicePairStreak(client) {
                         
                         // Check if streak is broken (bolong lebih dari 24 jam) for active pairs
                         // This check happens when day rolls over, before markValidToday
-                        if (pair.status === 'active' && pair.lastValidDate) {
+                        if (pair.status === 'active') {
                             const yesterdayKey = getDateKey(new Date(now - 24 * 60 * 60 * 1000));
-                            // If lastValidDate is not yesterday and not today, streak is broken
-                            if (pair.lastValidDate !== yesterdayKey && pair.lastValidDate !== todayKey) {
+                            // If lastValidDate exists and is not yesterday and not today, streak is broken
+                            if (pair.lastValidDate && pair.lastValidDate !== yesterdayKey && pair.lastValidDate !== todayKey) {
                                 // Streak broken (bolong lebih dari 24 jam) - reset streak
                                 pair.streak = 0;
                                 pair.status = 'candidate';
                                 pair.candidateConsecutive = 0;
+                            }
+                            // If lastValidDate is null for an active pair, this is a data inconsistency
+                            // Try to recover: if streak > 0, assume they validated yesterday
+                            if (!pair.lastValidDate && pair.streak > 0) {
+                                pair.lastValidDate = yesterdayKey;
                             }
                         }
                     }
@@ -261,7 +282,9 @@ async function tickVoicePairStreak(client) {
 
                     if (!pair.todayValid && pair.todaySeconds >= settings.requiredSeconds) {
                         const res = markValidToday(store, pair, todayKey, now);
-                        if (pair.status === 'active') {
+                        // Notify if: (1) candidate became active, OR (2) active pair and streak incremented
+                        // Don't notify if already validated today (shouldn't happen due to todayValid check, but safety)
+                        if (!res.alreadyValidated && (res.becameActive || (pair.status === 'active' && res.streakIncremented && res.streak > 0))) {
                             notifyQueue.push({ guildId: guild.id, a: pair.a, b: pair.b, streak: res.streak });
                         }
                     }
