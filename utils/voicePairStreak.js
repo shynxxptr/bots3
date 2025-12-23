@@ -150,18 +150,20 @@ function markValidToday(store, pair, todayKey, now) {
             streakIncremented = true;
         } else if (!pair.lastValidDate) {
             // No lastValidDate - this shouldn't happen for active pairs, but handle it
-            // Set streak to 1 if it's 0, otherwise keep it
+            // PRESERVE PROGRESS: Keep existing streak, only set to 1 if it's 0
             if (!pair.streak || pair.streak === 0) {
                 pair.streak = 1;
                 streakIncremented = true;
             }
+            // If streak > 0, preserve it (don't reset)
         } else {
             // Gap detected but not broken (shouldn't happen for active, but handle)
-            // Keep current streak or set to 1 if 0
+            // PRESERVE PROGRESS: Keep current streak, only set to 1 if it's 0
             if (!pair.streak || pair.streak === 0) {
                 pair.streak = 1;
                 streakIncremented = true;
             }
+            // If streak > 0, preserve it (don't reset)
         }
         
         // Update lastValidDate to today
@@ -171,30 +173,39 @@ function markValidToday(store, pair, todayKey, now) {
 
     // candidate
     // If lastValidDate is today, this is a duplicate call in the same day - don't change candidateConsecutive
+    // PRESERVE PROGRESS: Keep current candidateConsecutive value
     if (pair.lastValidDate === todayKey) {
-        // Already validated today, keep current candidateConsecutive
+        // Already validated today, keep current candidateConsecutive (don't lose progress)
         return { becameActive: false, streak: 0, alreadyValidated: true };
     }
     
     // Track old candidateConsecutive to detect if it will change
     const oldCandidateConsecutive = pair.candidateConsecutive || 0;
     
+    // PRESERVE PROGRESS: Only increment or reset when necessary, never lose progress accidentally
     if (pair.lastValidDate === yesterdayKey) {
-        // Consecutive day - increment candidate
+        // Consecutive day - increment candidate (preserve and build on existing progress)
         pair.candidateConsecutive = oldCandidateConsecutive + 1;
     } else if (pair.lastValidDate && pair.lastValidDate !== todayKey) {
-        // Gap detected (bolong) - reset candidate consecutive
+        // Gap detected (bolong) - reset candidate consecutive to 1 (only reset when gap confirmed)
         pair.candidateConsecutive = 1;
     } else {
         // First valid day or no lastValidDate
-        pair.candidateConsecutive = 1;
+        // If candidateConsecutive already exists and > 0, preserve it (might be recovery case)
+        // Otherwise set to 1
+        if (!pair.candidateConsecutive || pair.candidateConsecutive === 0) {
+            pair.candidateConsecutive = 1;
+        }
+        // If candidateConsecutive > 0, keep it (preserve progress)
     }
 
     pair.lastValidDate = todayKey;
 
     if (pair.candidateConsecutive >= minConsecutiveDays) {
         pair.status = 'active';
-        pair.streak = minConsecutiveDays; // starts at 3
+        // PRESERVE PROGRESS: Use candidateConsecutive value, not just minConsecutiveDays
+        // This ensures if someone had more days, it's preserved
+        pair.streak = Math.max(minConsecutiveDays, pair.candidateConsecutive);
         pair.lastActiveDate = todayKey;
         // enforce limit for both users
         evictIfOverLimit(store, pair.guildId, pair.a, limitPerUser);
@@ -261,21 +272,27 @@ async function tickVoicePairStreak(client) {
                         
                         // Check if streak is broken (bolong lebih dari 24 jam) for active pairs
                         // This check happens when day rolls over, before markValidToday
+                        // IMPORTANT: Only reset if streak is truly broken, preserve progress otherwise
                         if (pair.status === 'active') {
                             const yesterdayKey = getDateKey(new Date(now - 24 * 60 * 60 * 1000));
                             // If lastValidDate exists and is not yesterday and not today, streak is broken
                             if (pair.lastValidDate && pair.lastValidDate !== yesterdayKey && pair.lastValidDate !== todayKey) {
                                 // Streak broken (bolong lebih dari 24 jam) - reset streak
+                                // But preserve candidateConsecutive as 1 since they're starting fresh today
                                 pair.streak = 0;
                                 pair.status = 'candidate';
-                                pair.candidateConsecutive = 0;
+                                pair.candidateConsecutive = 1; // Start fresh, not 0
                             }
                             // If lastValidDate is null for an active pair, this is a data inconsistency
-                            // Try to recover: if streak > 0, assume they validated yesterday
+                            // Try to recover: if streak > 0, assume they validated yesterday to preserve progress
                             if (!pair.lastValidDate && pair.streak > 0) {
                                 pair.lastValidDate = yesterdayKey;
                             }
                         }
+                        
+                        // For candidates: preserve candidateConsecutive progress when day rolls over
+                        // Only reset if there's a gap (handled in markValidToday)
+                        // Don't reset here to preserve progress
                     }
 
                     pair.todaySeconds += settings.tickSeconds;
