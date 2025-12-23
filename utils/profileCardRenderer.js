@@ -740,7 +740,6 @@ async function drawStatsSidebar(ctx, stats, customization, width, height) {
     for (const statId of customization.stats.enabled) {
         if (!stats || !stats[statId]) continue;
         
-        const icon = statIcons[statId] || '▰';
         const label = statLabels[statId] || statId;
         const value = formatStatValue(statId, stats[statId]);
         
