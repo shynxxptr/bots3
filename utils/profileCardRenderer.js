@@ -448,7 +448,10 @@ async function drawBadgesEnhanced(ctx, achievements, customization, x, y, maxWid
     ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
     ctx.font = 'bold 24px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('🏆 Achievements', x, y - 20);
+    
+    // Draw trophy icon
+    drawTrophyIcon(ctx, x, y - 40, 20);
+    ctx.fillText('Achievements', x + 30, y - 20);
     
     // Draw badges
     let badgeX = x;
@@ -478,7 +481,7 @@ async function drawBadgesEnhanced(ctx, achievements, customization, x, y, maxWid
         ctx.textAlign = 'center';
         
         // Emoji
-        ctx.fillText(badge.emoji || '🏆', badgeX + badgeWidth / 2, y + 30);
+        ctx.fillText(badge.emoji || '★', badgeX + badgeWidth / 2, y + 30);
         
         // Name (truncate if too long)
         const badgeName = badge.name.length > 12 ? badge.name.substring(0, 10) + '...' : badge.name;
@@ -717,18 +720,13 @@ async function drawStatsSidebar(ctx, stats, customization, width, height) {
     ctx.fillStyle = titleGradient;
     ctx.font = 'bold 24px sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('📊 Stats', sidebarX + 20, sidebarY + 40);
+    
+    // Draw stats icon
+    drawStatsIcon(ctx, sidebarX + 20, sidebarY + 20, 20);
+    ctx.fillText('Stats', sidebarX + 50, sidebarY + 40);
     
     // Draw each stat with cards
     let yOffset = sidebarY + 70;
-    const statIcons = {
-        voice_time: '🎤',
-        messages: '💬',
-        prestasi: '⭐',
-        quotes: '💬',
-        streak: '🔥',
-        voice_streak: '🎤'
-    };
     
     const statLabels = {
         voice_time: 'Voice Time',
@@ -742,7 +740,7 @@ async function drawStatsSidebar(ctx, stats, customization, width, height) {
     for (const statId of customization.stats.enabled) {
         if (!stats || !stats[statId]) continue;
         
-        const icon = statIcons[statId] || '📊';
+        const icon = statIcons[statId] || '▰';
         const label = statLabels[statId] || statId;
         const value = formatStatValue(statId, stats[statId]);
         
@@ -754,13 +752,18 @@ async function drawStatsSidebar(ctx, stats, customization, width, height) {
         
         // Icon
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '28px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(icon, sidebarX + 20, yOffset + 40);
+        ctx.save();
+        const iconSize = 24;
+        const iconX = sidebarX + 20;
+        const iconY = yOffset + (cardHeight / 2) - (iconSize / 2);
+        
+        drawStatIcon(ctx, statId, iconX, iconY, iconSize);
+        ctx.restore();
         
         // Value
         ctx.font = 'bold 22px sans-serif';
-        ctx.fillText(value, sidebarX + 60, yOffset + 35);
+        ctx.textAlign = 'left';
+        ctx.fillText(value, sidebarX + 55, yOffset + 35);
         
         // Label
         ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
@@ -796,6 +799,276 @@ function formatStatValue(statId, value) {
         default:
             return value.toString();
     }
+}
+
+/**
+ * Draw stats icon (chart/bar icon)
+ */
+function drawStatsIcon(ctx, x, y, size) {
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.translate(x, y);
+    
+    // Draw bar chart icon
+    const barWidth = size * 0.2;
+    const spacing = size * 0.15;
+    
+    // Bar 1
+    ctx.fillRect(0, size * 0.6, barWidth, size * 0.4);
+    // Bar 2
+    ctx.fillRect(barWidth + spacing, size * 0.3, barWidth, size * 0.7);
+    // Bar 3
+    ctx.fillRect((barWidth + spacing) * 2, size * 0.4, barWidth, size * 0.6);
+    // Bar 4
+    ctx.fillRect((barWidth + spacing) * 3, size * 0.1, barWidth, size * 0.9);
+    
+    ctx.restore();
+}
+
+/**
+ * Draw stat icon based on stat ID
+ */
+function drawStatIcon(ctx, statId, x, y, size) {
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.translate(x + size / 2, y + size / 2);
+    
+    switch (statId) {
+        case 'voice_time':
+        case 'voice_streak':
+            drawMicrophoneIcon(ctx, size);
+            break;
+        case 'messages':
+            drawMessageIcon(ctx, size);
+            break;
+        case 'prestasi':
+            drawStarIcon(ctx, size);
+            break;
+        case 'quotes':
+            drawQuoteIcon(ctx, size);
+            break;
+        case 'streak':
+            drawFireIcon(ctx, size);
+            break;
+        default:
+            drawDefaultIcon(ctx, size);
+    }
+    
+    ctx.restore();
+}
+
+/**
+ * Draw microphone icon
+ */
+function drawMicrophoneIcon(ctx, size) {
+    const scale = size / 24;
+    // Microphone body (rectangle)
+    ctx.fillRect(-3 * scale, -8 * scale, 6 * scale, 12 * scale);
+    // Microphone stand (base)
+    ctx.fillRect(-5 * scale, 4 * scale, 10 * scale, 2 * scale);
+    // Microphone stand (vertical)
+    ctx.fillRect(-1 * scale, 6 * scale, 2 * scale, 4 * scale);
+    // Microphone stand (legs)
+    ctx.fillRect(-5 * scale, 10 * scale, 3 * scale, 1 * scale);
+    ctx.fillRect(2 * scale, 10 * scale, 3 * scale, 1 * scale);
+}
+
+/**
+ * Draw message bubble icon
+ */
+function drawMessageIcon(ctx, size) {
+    const scale = size / 24;
+    // Message bubble (rounded rectangle using path)
+    const x = -8 * scale;
+    const y = -8 * scale;
+    const w = 16 * scale;
+    const h = 12 * scale;
+    const r = 3 * scale;
+    
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Tail
+    ctx.beginPath();
+    ctx.moveTo(-2 * scale, 4 * scale);
+    ctx.lineTo(-6 * scale, 10 * scale);
+    ctx.lineTo(0 * scale, 6 * scale);
+    ctx.closePath();
+    ctx.fill();
+}
+
+/**
+ * Draw star icon
+ */
+function drawStarIcon(ctx, size) {
+    const scale = size / 24;
+    ctx.beginPath();
+    const spikes = 5;
+    const outerRadius = 8 * scale;
+    const innerRadius = 4 * scale;
+    let rot = Math.PI / 2 * 3;
+    let x = 0;
+    let y = -outerRadius;
+    ctx.moveTo(x, y);
+    
+    for (let i = 0; i < spikes; i++) {
+        x = Math.cos(rot) * outerRadius;
+        y = Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += Math.PI / spikes;
+        
+        x = Math.cos(rot) * innerRadius;
+        y = Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += Math.PI / spikes;
+    }
+    ctx.lineTo(0, -outerRadius);
+    ctx.closePath();
+    ctx.fill();
+}
+
+/**
+ * Draw quote icon
+ */
+function drawQuoteIcon(ctx, size) {
+    const scale = size / 24;
+    // Left quote
+    ctx.beginPath();
+    ctx.arc(-6 * scale, -4 * scale, 3 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-6 * scale, 2 * scale, 3 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    // Right quote
+    ctx.beginPath();
+    ctx.arc(6 * scale, -4 * scale, 3 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(6 * scale, 2 * scale, 3 * scale, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+/**
+ * Draw fire icon
+ */
+function drawFireIcon(ctx, size) {
+    const scale = size / 24;
+    // Save original fill style
+    const originalFill = ctx.fillStyle;
+    
+    // Fire shape (flame) - outer
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.moveTo(0, 8 * scale);
+    ctx.quadraticCurveTo(-4 * scale, 0, -6 * scale, -6 * scale);
+    ctx.quadraticCurveTo(-4 * scale, -4 * scale, -2 * scale, -8 * scale);
+    ctx.quadraticCurveTo(0, -10 * scale, 2 * scale, -8 * scale);
+    ctx.quadraticCurveTo(4 * scale, -4 * scale, 6 * scale, -6 * scale);
+    ctx.quadraticCurveTo(4 * scale, 0, 0, 8 * scale);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Inner flame (lighter color for depth)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.beginPath();
+    ctx.moveTo(0, 6 * scale);
+    ctx.quadraticCurveTo(-2 * scale, -2 * scale, -3 * scale, -5 * scale);
+    ctx.quadraticCurveTo(-1 * scale, -3 * scale, 0, -6 * scale);
+    ctx.quadraticCurveTo(1 * scale, -3 * scale, 3 * scale, -5 * scale);
+    ctx.quadraticCurveTo(2 * scale, -2 * scale, 0, 6 * scale);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Restore fill style
+    ctx.fillStyle = originalFill;
+}
+
+/**
+ * Draw default icon (circle)
+ */
+function drawDefaultIcon(ctx, size) {
+    const scale = size / 24;
+    ctx.beginPath();
+    ctx.arc(0, 0, 6 * scale, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+/**
+ * Draw trophy icon for achievements
+ */
+function drawTrophyIcon(ctx, x, y, size) {
+    ctx.save();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.translate(x, y);
+    const scale = size / 24;
+    
+    // Trophy base
+    ctx.fillRect(-6 * scale, 8 * scale, 12 * scale, 2 * scale);
+    // Trophy body (cup shape)
+    ctx.beginPath();
+    ctx.moveTo(-4 * scale, 8 * scale);
+    ctx.lineTo(-6 * scale, -4 * scale);
+    ctx.lineTo(-2 * scale, -6 * scale);
+    ctx.lineTo(-2 * scale, 2 * scale);
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.moveTo(4 * scale, 8 * scale);
+    ctx.lineTo(6 * scale, -4 * scale);
+    ctx.lineTo(2 * scale, -6 * scale);
+    ctx.lineTo(2 * scale, 2 * scale);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Trophy top (handle area)
+    ctx.fillRect(-2 * scale, -6 * scale, 4 * scale, 2 * scale);
+    
+    // Trophy handles
+    ctx.beginPath();
+    ctx.arc(-6 * scale, 0, 2 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(6 * scale, 0, 2 * scale, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Trophy star on top
+    ctx.beginPath();
+    const spikes = 5;
+    const outerRadius = 3 * scale;
+    const innerRadius = 1.5 * scale;
+    let rot = Math.PI / 2 * 3;
+    let starX = 0;
+    let starY = -8 * scale;
+    ctx.moveTo(starX, starY - outerRadius);
+    
+    for (let i = 0; i < spikes; i++) {
+        starX = Math.cos(rot) * outerRadius;
+        starY = Math.sin(rot) * outerRadius - 8 * scale;
+        ctx.lineTo(starX, starY);
+        rot += Math.PI / spikes;
+        
+        starX = Math.cos(rot) * innerRadius;
+        starY = Math.sin(rot) * innerRadius - 8 * scale;
+        ctx.lineTo(starX, starY);
+        rot += Math.PI / spikes;
+    }
+    ctx.closePath();
+    ctx.fill();
+    
+    ctx.restore();
 }
 
 /**
