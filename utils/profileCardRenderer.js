@@ -964,8 +964,6 @@ function drawQuoteIcon(ctx, size) {
  */
 function drawFireIcon(ctx, size) {
     const scale = size / 24;
-    // Save original fill style
-    const originalFill = ctx.fillStyle;
     
     // Fire shape (flame) - outer
     ctx.fillStyle = '#FFFFFF';
@@ -990,8 +988,8 @@ function drawFireIcon(ctx, size) {
     ctx.closePath();
     ctx.fill();
     
-    // Restore fill style
-    ctx.fillStyle = originalFill;
+    // Reset fill style (ctx.restore() in parent will handle this, but being explicit)
+    ctx.fillStyle = '#FFFFFF';
 }
 
 /**
