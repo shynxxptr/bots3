@@ -170,3 +170,4 @@ assets/
 **Catatan Penting**: Jika Anda menggunakan file gambar, fungsi-fungsi ini perlu diubah menjadi `async function` dan fungsi yang memanggilnya juga harus `await`.
 
 
+

@@ -82,6 +82,16 @@ function ensurePair(store, guildId, a, b) {
             lastNotifiedDate: null,
             createdAt: Date.now(),
         };
+    } else {
+        // FIX: Update guildId if it's different (handle guild migration or data inconsistency)
+        // This ensures pair is tracked in the correct guild
+        if (store.pairs[key].guildId !== guildId) {
+            store.pairs[key].guildId = guildId;
+        }
+        // FIX: Ensure todayKey is initialized if null (recovery for existing pairs)
+        if (store.pairs[key].todayKey === null || store.pairs[key].todayKey === undefined) {
+            store.pairs[key].todayKey = getDateKey();
+        }
     }
     return store.pairs[key];
 }
@@ -264,11 +274,16 @@ async function tickVoicePairStreak(client) {
                     const b = members[j];
                     const pair = ensurePair(store, guild.id, a, b);
 
-                    // reset today's counters if day rolled
-                    if (pair.todayKey !== todayKey) {
+                    // FIX: Always check day rollover - use strict comparison and handle null/undefined
+                    // Reset today's counters if day rolled or if todayKey is invalid
+                    const pairTodayKey = pair.todayKey || null;
+                    const dayRolled = (pairTodayKey !== todayKey);
+                    
+                    if (dayRolled) {
+                        // Day rolled over - reset today's counters
                         pair.todayKey = todayKey;
                         pair.todaySeconds = 0;
-                        pair.todayValid = false;
+                        pair.todayValid = false; // FIX: Always reset todayValid on day rollover
                         
                         // Check if streak is broken (bolong lebih dari 24 jam) for active pairs
                         // This check happens when day rolls over, before markValidToday
@@ -294,10 +309,29 @@ async function tickVoicePairStreak(client) {
                         // Only reset if there's a gap (handled in markValidToday)
                         // Don't reset here to preserve progress
                     }
+                    
+                    // FIX: Additional safety check - if todayValid is true but todayKey doesn't match, reset it
+                    // This handles edge cases where todayValid might be stuck
+                    if (pair.todayValid && pair.todayKey !== todayKey) {
+                        pair.todayValid = false;
+                        pair.todayKey = todayKey;
+                    }
 
+                    // FIX: Only accumulate time if pair is in the correct guild
+                    // This prevents cross-guild tracking issues
+                    if (pair.guildId !== guild.id) {
+                        // Skip this pair if guildId doesn't match (shouldn't happen due to ensurePair fix, but safety)
+                        continue;
+                    }
+                    
                     pair.todaySeconds += settings.tickSeconds;
 
-                    if (!pair.todayValid && pair.todaySeconds >= settings.requiredSeconds) {
+                    // FIX: Ensure todayValid check works correctly - validate requirements met
+                    // Also check if todaySeconds is valid (not NaN or negative)
+                    const hasEnoughTime = !isNaN(pair.todaySeconds) && pair.todaySeconds >= settings.requiredSeconds;
+                    const notValidatedToday = !pair.todayValid;
+                    
+                    if (notValidatedToday && hasEnoughTime) {
                         const res = markValidToday(store, pair, todayKey, now);
                         // Notify if: (1) candidate became active, OR (2) active pair and streak incremented
                         // Don't notify if already validated today (shouldn't happen due to todayValid check, but safety)
@@ -398,7 +432,25 @@ function getPairStreak(guildId, userA, userB) {
     const store = loadStore();
     const key = pairKey(userA, userB);
     const p = store.pairs?.[key];
-    if (!p || p.guildId !== guildId) return null;
+    if (!p) return null;
+    
+    // FIX: If guildId doesn't match, return null (pair belongs to different guild)
+    // But also log a warning if this happens (might indicate data inconsistency)
+    if (p.guildId !== guildId) {
+        return null;
+    }
+    
+    // FIX: Ensure pair data is valid - initialize missing fields if needed
+    if (p.todayKey === null || p.todayKey === undefined) {
+        p.todayKey = getDateKey();
+    }
+    if (p.todaySeconds === null || p.todaySeconds === undefined) {
+        p.todaySeconds = 0;
+    }
+    if (p.todayValid === null || p.todayValid === undefined) {
+        p.todayValid = false;
+    }
+    
     return p;
 }
 

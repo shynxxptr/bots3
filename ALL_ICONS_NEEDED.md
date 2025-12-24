@@ -35,7 +35,7 @@ Badge ditampilkan di card dengan tinggi 70px, icon ditampilkan dengan font size 
    - Untuk: Voice Time & Voice Streak
    - Fungsi: `drawMicrophoneIcon()`
    - Lokasi kode: Baris ~864
-
+w
 2. **icon_message.png** (24×24px)
    - Untuk: Messages
    - Fungsi: `drawMessageIcon()`
@@ -338,5 +338,6 @@ assets/
 - Untuk mengganti dengan file gambar, perlu modifikasi di `drawBadgesEnhanced()` function
 - Achievement icon menggunakan `badge.emoji` dari achievement definition
 - Untuk menggunakan file gambar, perlu mapping dari achievement ID ke file path icon
+
 
 
