@@ -40,45 +40,28 @@ module.exports = {
         }
 
         // Counting Logic
-        if (message.channel.id === config.counting.channelId) {
-            const fs = require('fs');
-            const path = require('path');
-            const dataPath = path.join(__dirname, '../data/counting.json');
-
-            let countingData = { currentCount: 0, lastUserId: null };
+        // FIX: Add config validation
+        if (config.counting && config.counting.channelId && message.channel.id === config.counting.channelId) {
             try {
-                countingData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-            } catch (err) {
-                console.error('Error reading counting data:', err);
-            }
+                const { processCountingMessage } = require('../utils/counting');
+                const result = processCountingMessage(message.author.id, message.id, message.content);
 
-            const number = parseInt(message.content);
-
-            // Check if it's a number
-            if (isNaN(number)) return;
-
-            // Check if user is the same as last user
-            if (message.author.id === countingData.lastUserId) {
-                await message.react('❌');
-                await message.channel.send(`🚫 <@${message.author.id}>, kamu tidak boleh menghitung dua kali berturut-turut! Hitungan di-reset ke 0.`);
-                countingData.currentCount = 0;
-                countingData.lastUserId = null;
-                fs.writeFileSync(dataPath, JSON.stringify(countingData, null, 4));
-                return;
-            }
-
-            // Check if number is correct
-            if (number === countingData.currentCount + 1) {
-                countingData.currentCount++;
-                countingData.lastUserId = message.author.id;
-                await message.react('✅');
-                fs.writeFileSync(dataPath, JSON.stringify(countingData, null, 4));
-            } else {
-                await message.react('❌');
-                await message.channel.send(`💀 <@${message.author.id}> salah hitung! Angka selanjutnya harusnya **${countingData.currentCount + 1}**. Hitungan di-reset ke 0.`);
-                countingData.currentCount = 0;
-                countingData.lastUserId = null;
-                fs.writeFileSync(dataPath, JSON.stringify(countingData, null, 4));
+                if (result.success) {
+                    // Correct number
+                    await message.react('✅');
+                } else if (result.action === 'same_user') {
+                    // Same user counting twice
+                    await message.react('❌');
+                    await message.channel.send(`🚫 <@${message.author.id}>, ${result.message}`);
+                } else if (result.action === 'wrong_number') {
+                    // Wrong number
+                    await message.react('❌');
+                    await message.channel.send(`💀 <@${message.author.id}>, ${result.message}`);
+                }
+                // If result.error, silently fail (not a valid counting message)
+            } catch (error) {
+                console.error('Error in counting logic:', error);
+                // Don't break message handling if counting fails
             }
             return;
         }
