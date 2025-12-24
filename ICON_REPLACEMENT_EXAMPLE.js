@@ -294,3 +294,4 @@ async function drawBadgesEnhanced(ctx, achievements, customization, x, y, maxWid
 
 
 
+

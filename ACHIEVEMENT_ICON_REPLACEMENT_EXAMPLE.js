@@ -213,3 +213,4 @@ async function drawAchievementIconWithMapping(ctx, achievementId, x, y, size) {
 
 
 
+

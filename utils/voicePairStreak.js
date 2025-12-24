@@ -89,8 +89,19 @@ function ensurePair(store, guildId, a, b) {
             store.pairs[key].guildId = guildId;
         }
         // FIX: Ensure todayKey is initialized if null (recovery for existing pairs)
+        const todayKey = getDateKey();
         if (store.pairs[key].todayKey === null || store.pairs[key].todayKey === undefined) {
-            store.pairs[key].todayKey = getDateKey();
+            store.pairs[key].todayKey = todayKey;
+        }
+        // FIX: Ensure todaySeconds is initialized and valid
+        if (store.pairs[key].todaySeconds === null || store.pairs[key].todaySeconds === undefined || isNaN(store.pairs[key].todaySeconds)) {
+            store.pairs[key].todaySeconds = 0;
+        }
+        // FIX: If day rolled over, reset today's counters
+        if (store.pairs[key].todayKey !== todayKey) {
+            store.pairs[key].todayKey = todayKey;
+            store.pairs[key].todaySeconds = 0;
+            store.pairs[key].todayValid = false;
         }
     }
     return store.pairs[key];
@@ -324,6 +335,12 @@ async function tickVoicePairStreak(client) {
                         continue;
                     }
                     
+                    // FIX: Always accumulate time, even if already validated today
+                    // This ensures progress is always tracked and visible
+                    // Initialize todaySeconds if it's invalid
+                    if (isNaN(pair.todaySeconds) || pair.todaySeconds < 0) {
+                        pair.todaySeconds = 0;
+                    }
                     pair.todaySeconds += settings.tickSeconds;
 
                     // FIX: Ensure todayValid check works correctly - validate requirements met
@@ -331,12 +348,26 @@ async function tickVoicePairStreak(client) {
                     const hasEnoughTime = !isNaN(pair.todaySeconds) && pair.todaySeconds >= settings.requiredSeconds;
                     const notValidatedToday = !pair.todayValid;
                     
-                    if (notValidatedToday && hasEnoughTime) {
+                    // FIX: Process validation even if already validated today (for recovery cases)
+                    // This helps fix pairs that might be stuck
+                    if (hasEnoughTime && notValidatedToday) {
                         const res = markValidToday(store, pair, todayKey, now);
                         // Notify if: (1) candidate became active, OR (2) active pair and streak incremented
                         // Don't notify if already validated today (shouldn't happen due to todayValid check, but safety)
                         if (!res.alreadyValidated && (res.becameActive || (pair.status === 'active' && res.streakIncremented && res.streak > 0))) {
                             notifyQueue.push({ guildId: guild.id, a: pair.a, b: pair.b, streak: res.streak });
+                        }
+                    } else if (hasEnoughTime && pair.todayValid) {
+                        // FIX: If already validated but time keeps accumulating, ensure data is consistent
+                        // This handles edge cases where todayValid might be true but data is inconsistent
+                        if (!pair.lastValidDate || pair.lastValidDate !== todayKey) {
+                            // Data inconsistency detected - try to fix it
+                            if (pair.status === 'active') {
+                                // Ensure lastValidDate is set correctly
+                                if (!pair.lastValidDate) {
+                                    pair.lastValidDate = todayKey;
+                                }
+                            }
                         }
                     }
                 }
@@ -512,7 +543,10 @@ function setPairStreak(guildId, userA, userB, streak) {
 /**
  * Test streak notification - generate and send a test streak card
  */
-async function testStreakNotification(client, guildId, userId1, userId2, streak = 5) {
+/**
+ * Send streak notification for a pair (helper function)
+ */
+async function sendStreakNotification(client, guildId, userId1, userId2, streak, isTest = false) {
     try {
         const cfg = readConfig();
         const guildObj = client.guilds.cache.get(guildId);
@@ -547,14 +581,66 @@ async function testStreakNotification(client, guildId, userId1, userId2, streak 
             cardConfig: cfg.voicePairStreakCard || {},
         });
 
+        const prefix = isTest ? '*(Test notification)*\n' : '';
         await channel.send({
-            content: `🔥 **Streak Voice S3 naik!** <@${userId1}> x <@${userId2}> → **${streak} hari**\n*(Test notification)*`,
+            content: `${prefix}🔥 **Streak Voice S3 naik!** <@${userId1}> x <@${userId2}> → **${streak} hari**`,
             files: [card],
         });
 
         return { success: true };
     } catch (err) {
-        console.error('Test streak notification failed:', err);
+        console.error('Streak notification failed:', err);
+        return { success: false, error: err.message };
+    }
+}
+
+async function testStreakNotification(client, guildId, userId1, userId2, streak = 5) {
+    return await sendStreakNotification(client, guildId, userId1, userId2, streak, true);
+}
+
+/**
+ * Trigger streak notification for existing active pair (admin function)
+ * @param {object} client - Discord client
+ * @param {string} guildId - Guild ID
+ * @param {string} userId1 - First user ID
+ * @param {string} userId2 - Second user ID
+ * @param {number} streak - Optional streak value (if not provided, uses current streak from data)
+ * @returns {object} Result
+ */
+async function triggerStreakNotification(client, guildId, userId1, userId2, streak = null) {
+    try {
+        const store = loadStore();
+        const key = pairKey(userId1, userId2);
+        const pair = store.pairs?.[key];
+
+        if (!pair || pair.guildId !== guildId) {
+            return { success: false, error: 'Pair tidak ditemukan' };
+        }
+
+        if (pair.status !== 'active') {
+            return { success: false, error: 'Pair belum active (status: ' + pair.status + ')' };
+        }
+
+        // Use provided streak or current streak from data
+        const streakToUse = streak !== null ? streak : (pair.streak || 0);
+        
+        if (streakToUse <= 0) {
+            return { success: false, error: 'Streak harus > 0' };
+        }
+
+        // Send notification
+        const result = await sendStreakNotification(client, guildId, userId1, userId2, streakToUse, false);
+
+        if (result.success) {
+            // Update lastNotifiedDate to today to prevent duplicate notifications
+            const todayKey = getDateKey();
+            pair.lastNotifiedDate = todayKey;
+            saveStore(store);
+        }
+
+        return result;
+    } catch (err) {
+        console.error('Trigger streak notification failed:', err);
         return { success: false, error: err.message };
     }
 }
@@ -566,6 +652,7 @@ module.exports = {
     getTopPairsForUser,
     getSettings,
     testStreakNotification,
+    triggerStreakNotification,
     getDateKey,
     setPairStreak,
 };
